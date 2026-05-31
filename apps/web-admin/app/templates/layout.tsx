@@ -1,0 +1,9 @@
+import { SessionGuard } from "../components/SessionGuard";
+
+export default function TemplatesLayout({
+  children
+}: {
+  children: React.ReactNode;
+}) {
+  return <SessionGuard>{children}</SessionGuard>;
+}

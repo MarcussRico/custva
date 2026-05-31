@@ -1,0 +1,29 @@
+{
+  "name": "@custva/web-merchant",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "typecheck": "tsc --noEmit",
+    "lint": "next lint",
+    "test": "echo \"No tests yet for @custva/web-merchant\""
+  },
+  "dependencies": {
+    "@custva/shared": "workspace:*",
+    "jsonwebtoken": "^9.0.2",
+    "next": "^14.2.15",
+    "nodemailer": "^8.0.10",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^22.7.4",
+    "@types/nodemailer": "^8.0.0",
+    "@types/react": "^18.3.9",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.6.2"
+  }
+}

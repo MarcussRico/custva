@@ -1,0 +1,8 @@
+ALTER TABLE merchants
+  ADD COLUMN IF NOT EXISTS logo_url TEXT,
+  ADD COLUMN IF NOT EXISTS address TEXT,
+  ADD COLUMN IF NOT EXISTS pincode VARCHAR(10),
+  ADD COLUMN IF NOT EXISTS current_revenue NUMERIC(14, 2) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS item_categories JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+CREATE INDEX IF NOT EXISTS idx_merchants_pincode ON merchants (pincode);
