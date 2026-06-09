@@ -6,10 +6,12 @@ import { MerchantOnboardingForm } from "./MerchantOnboardingForm";
 
 export function AddMerchantModal({
   open,
-  onClose
+  onClose,
+  onSuccess
 }: {
   open: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }) {
   const router = useRouter();
 
@@ -30,6 +32,7 @@ export function AddMerchantModal({
 
   const handleSuccess = () => {
     router.refresh();
+    onSuccess?.();
     onClose();
   };
 

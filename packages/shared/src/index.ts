@@ -47,6 +47,15 @@ export interface CustomerDto {
   updatedAt: string;
 }
 
+/** BullMQ custom job IDs cannot contain `:`. */
+export function lifecycleBullJobId(scheduleId: string): string {
+  return `lifecycle-${scheduleId}`;
+}
+
+export function campaignBatchBullJobId(campaignId: string, batchIndex: number): string {
+  return `campaign-${campaignId}-batch-${batchIndex}`;
+}
+
 export const BRAND_TOKENS = {
   fontFamily: "Poppins",
   colors: {

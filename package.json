@@ -21,6 +21,7 @@
     "test": "corepack pnpm -r test",
     "build": "corepack pnpm -r build",
     "db:migrate": "node scripts/run-migrations.mjs",
-    "db:seed": "node scripts/seed-demo.mjs"
+    "db:seed": "node scripts/seed-demo.mjs",
+    "db:seed-lifecycle": "node scripts/seed-lifecycle-templates.mjs"
   }
 }

@@ -18,8 +18,8 @@ const client = new Client({ connectionString: databaseUrl });
 await client.connect();
 
 await client.query(
-  `INSERT INTO merchants (id, name, business_name, email, status)
-   VALUES ($1, 'Custva Platform', 'Custva Platform', 'platform@custva.local', 'active')
+  `INSERT INTO merchants (id, name, business_name, email, status, item_categories)
+   VALUES ($1, 'Custva Platform', 'Custva Platform', 'platform@custva.local', 'active', '["cafe"]'::jsonb)
    ON CONFLICT (email) DO NOTHING`,
   [adminMerchantId]
 );
@@ -38,5 +38,7 @@ await client.query(
   [adminMerchantId, adminEmail, adminHash]
 );
 
-await client.end();
 console.log(`Platform admin seed complete: ${adminEmail}`);
+console.log("Lifecycle templates are seeded via migration 0010. Run: node scripts/seed-lifecycle-templates.mjs");
+
+await client.end();

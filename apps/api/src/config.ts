@@ -13,7 +13,9 @@ const envSchema = z.object({
   REDIS_URL: z.string().url(),
   WA_PHONE_NUMBER_ID: z.string().optional(),
   WA_ACCESS_TOKEN: z.string().optional(),
-  WA_WEBHOOK_VERIFY_TOKEN: z.string().optional()
+  WA_WEBHOOK_VERIFY_TOKEN: z.string().optional(),
+  WA_MERCHANT_DAILY_CAP: z.coerce.number().default(500),
+  WA_PLATFORM_DAILY_CAP: z.coerce.number().default(100000)
 });
 
 const parsed = envSchema.safeParse(process.env);

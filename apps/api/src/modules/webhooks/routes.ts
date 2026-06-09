@@ -69,6 +69,22 @@ webhookRouter.post("/whatsapp", async (req, res) => {
         "UPDATE campaigns SET delivered_count = delivered_count + 1, updated_at = NOW() WHERE id = $1",
         [message.campaign_id]
       );
+      await query(
+        `INSERT INTO daily_merchant_metrics (merchant_id, metric_date, messages_delivered)
+         VALUES ($1, CURRENT_DATE, 1)
+         ON CONFLICT (merchant_id, metric_date) DO UPDATE SET
+           messages_delivered = daily_merchant_metrics.messages_delivered + 1, updated_at = NOW()`,
+        [message.merchant_id]
+      );
+    }
+    if (status.status === "read") {
+      await query(
+        `INSERT INTO daily_merchant_metrics (merchant_id, metric_date, messages_read)
+         VALUES ($1, CURRENT_DATE, 1)
+         ON CONFLICT (merchant_id, metric_date) DO UPDATE SET
+           messages_read = daily_merchant_metrics.messages_read + 1, updated_at = NOW()`,
+        [message.merchant_id]
+      );
     }
     if (status.status === "failed") {
       await query(

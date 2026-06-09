@@ -144,6 +144,24 @@ Request:
 }
 ```
 
+## Merchant profile
+
+### `GET /merchants/me`
+
+Returns shop profile: `shopName`, `shopAddress`, `pincode`, `shopLogo`, `ownerName`, `email`, `subscriptionStatus`, `itemCategories`.
+
+### `PATCH /merchants/me`
+
+Updatable: `shopName`, `ownerName`, `shopAddress`, `pincode`, `shopLogo`, `email`, `currentRevenue`. Email change returns `emailVerificationRequired: true`.
+
+### `POST /merchants/me/password/request-otp`
+
+Merchant admin only. Returns `{ sent: true, email: "masked@..." }`. OTP email is delivered via the merchant web BFF.
+
+### `POST /merchants/me/password/confirm`
+
+Merchant admin only. Body: `{ newPassword }` (min 8 chars). Called by BFF after email OTP verification.
+
 ## Customer endpoints
 
 ### `POST /customers`
@@ -153,29 +171,48 @@ Request:
 ```json
 {
   "name": "Rohan Gupta",
-  "mobile": "+919900000001",
+  "mobile": "9900000001",
   "billingAmount": 650,
-  "location": "Bandra",
-  "visitDate": "2026-05-28T10:00:00Z",
+  "pincode": "400001",
+  "age": 28,
   "notes": "Prefers sugar-free options"
 }
 ```
 
+`pincode` is optional (6 digits when provided).
+
 Behavior:
+- Normalizes mobile to E.164 (`+91...`).
 - Creates customer if mobile does not exist for merchant.
-- If customer exists, appends visit and recalculates aggregates.
+- Inserts `customer_visits` row and updates aggregates.
+- **Lifecycle automation** (if `whatsapp_opt_in`): cancels pending schedules from prior visits, enrolls customer in visit tier (`first_visit`–`fourth_visit` by `total_visits`), schedules Day 0 (+5 min), Day 3/7/14 (+3/7/14 days from visit) WhatsApp jobs on `lifecycle_dispatch_queue`.
+
+### `GET /customers/lookup`
+
+Prefix match on mobile for POS typeahead.
+
+Query: `mobilePrefix` (digits only, min 1), `limit` (default 5, max 10).
+
+Returns up to 5 items: `{ id, name, mobile, pincode, age, totalSpend, totalVisits, lastVisit, autoTags }`.
+
+### `GET /customers/recent`
+
+Returns last 10 newly created customers for dashboard widget.
 
 ### `GET /customers`
 
 Query params:
-- `page`, `limit`
-- `q` (name/mobile search)
-- `minSpend`, `maxSpend`
-- `visitCountGte`, `visitCountLte`
-- `inactiveDays`
-- `location`
-- `sortBy` (`lastVisit`, `totalSpend`, `totalVisits`, `createdAt`)
-- `sortDir` (`asc`, `desc`)
+- `page`, `limit`, `q`
+- `pincode`, `minSpend`, `maxSpend`, `minVisits`, `maxVisits`, `inactiveDays`, `inactiveDaysExact`, `exactVisits`
+- `minAge`, `maxAge`, `createdFrom`, `createdTo`, `lastVisitFrom`, `lastVisitTo`
+- `tag` (`New`, `Repeat`, `High-value`, `Inactive`)
+- `birthdayMonth`, `campaignEngagement` (`delivered`, `read`, `none`)
+- `sortBy` (`name`, `totalSpend`, `totalVisits`, `lastVisit`, `createdAt`, `updatedAt`)
+
+Filter notes:
+- `inactiveDays` — last visit at least N days ago (≥).
+- `inactiveDaysExact` — last visit exactly N calendar days before today.
+- `exactVisits` — `total_visits` equals N.
 
 Response:
 
@@ -277,43 +314,58 @@ Request:
 }
 ```
 
+### `POST /campaigns/:id/preview-audience`
+
+Returns `{ count, sample[] }` for resolved audience without sending.
+
 ### `POST /campaigns/:id/send`
 
 Behavior:
 - validates campaign eligibility
-- materializes audience
-- enqueues jobs in BullMQ
+- materializes audience from `audienceRules` + manual include/exclude
+- snapshots `campaign_audiences`
+- enqueues batch jobs in BullMQ
 - transitions status to `sending`
+
+## Template endpoints (merchant)
+
+### `POST /templates`
+
+Creates merchant-local template (`approval_status=approved`, `category=cafe`). Template `name` must match Meta-approved template name.
 
 ## Analytics endpoints
 
 ### `GET /analytics/dashboard`
 
-Response fields:
-- `totalCustomers`
-- `repeatCustomers`
-- `retentionRate`
-- `customerGrowth`
-- `revenueGrowth`
-- `activeCustomers`
-- `inactiveCustomers`
-- `campaignConversion`
-- `revenueFromCampaigns`
+Response fields include `todayVisits`, `todayRevenue`, `todayRetentionRevenue`, `repeatCustomers`, aggregate totals, and 30-day `series` from `daily_merchant_metrics`.
+
+Today stats are computed live from `customer_visits`:
+- `todayRevenue` — sum of all billing today
+- `todayRetentionRevenue` — sum of billing today where `is_repeat_visit = true` (customer's 2nd+ visit ever; set at write time on `POST /customers`)
+
+### `GET /analytics/customers`
+
+Top customers, inactive buckets, new vs repeat breakdown.
 
 ### `GET /analytics/retention`
 
-Query params:
-- `range` (`7d`, `30d`, `90d`)
-- `groupBy` (`day`, `week`)
+Time series with delivery rate and visit metrics.
 
-Response includes trend series and summary delta.
+### `GET /analytics/campaigns`
 
-### `GET /analytics/campaigns/:id`
+Campaign send/delivery/failure stats.
 
-Returns:
-- sent/delivered/read/failure counts
-- conversion counts
-- revenue attributed to campaign
+### `GET /analytics/templates`
+
+Template usage performance.
+
+### `GET /analytics/segments`
+
+Pincode and age band breakdown.
+
+### `GET /analytics/export?type=customers|metrics`
+
+CSV export stream.
 
 ## Admin endpoints
 

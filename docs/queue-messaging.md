@@ -9,11 +9,30 @@
 ## Queue topology
 
 - `campaign_dispatch_queue`: fan-out jobs per recipient
+- `lifecycle_dispatch_queue`: delayed per-customer lifecycle WhatsApp sends (Day 0/3/7/14)
 - `message_status_reconcile_queue`: delayed reconciliation for uncertain states
 - `analytics_projection_queue`: updates materialized metrics after status events
 - `dead_letter_queue`: exhausted jobs for manual/operator review
 
 ## Job contracts
+
+### Lifecycle dispatch job
+
+Queue: `lifecycle_dispatch_queue`
+
+Triggered by `POST /customers` after each visit. Schedules four milestones per visit tier (capped at fourth visit).
+
+```json
+{
+  "jobType": "lifecycle.dispatch",
+  "scheduleId": "uuid"
+}
+```
+
+- Job ID: `lifecycle:{scheduleId}` (idempotent)
+- Delay: `scheduled_at - now()` (Day 0 = visit + 5 minutes; Day 3/7/14 = visit + N days)
+- On new visit: pending schedules for customer are cancelled and BullMQ jobs removed
+- Worker sends full Meta template components (header image/text, body variables, URL button params)
 
 ### Campaign dispatch job
 

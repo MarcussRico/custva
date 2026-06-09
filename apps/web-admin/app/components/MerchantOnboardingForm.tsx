@@ -3,21 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-const CATEGORY_OPTIONS = [
-  "Groceries",
-  "Fashion & Apparel",
-  "Food & Beverage",
-  "Electronics",
-  "Beauty & Personal Care",
-  "Home & Living",
-  "Pharmacy & Health",
-  "Sports & Fitness",
-  "Books & Stationery",
-  "Jewellery",
-  "Automotive",
-  "Other"
-];
-
 const MAX_LOGO_BYTES = 500 * 1024;
 
 interface FormState {
@@ -28,7 +13,6 @@ interface FormState {
   email: string;
   password: string;
   currentRevenue: string;
-  customCategories: string;
 }
 
 const INITIAL: FormState = {
@@ -38,8 +22,7 @@ const INITIAL: FormState = {
   ownerName: "",
   email: "",
   password: "",
-  currentRevenue: "",
-  customCategories: ""
+  currentRevenue: ""
 };
 
 export function MerchantOnboardingForm({
@@ -51,24 +34,16 @@ export function MerchantOnboardingForm({
 }) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(INITIAL);
-  const [categories, setCategories] = useState<string[]>([]);
   const [shopLogo, setShopLogo] = useState<string>("");
   const [logoPreview, setLogoPreview] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const resetForm = () => {
     setForm(INITIAL);
-    setCategories([]);
     setShopLogo("");
     setLogoPreview("");
-    setError("");
-  };
-
-  const toggleCategory = (category: string) => {
-    setCategories((prev) =>
-      prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]
-    );
     setError("");
   };
 
@@ -103,22 +78,13 @@ export function MerchantOnboardingForm({
   const updateField = (field: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     setError("");
+    setSuccess("");
   };
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
-
-    const custom = form.customCategories
-      .split(",")
-      .map((c) => c.trim())
-      .filter(Boolean);
-    const itemCategories = [...new Set([...categories, ...custom])];
-
-    if (itemCategories.length === 0) {
-      setError("Select at least one item category.");
-      return;
-    }
+    setSuccess("");
 
     if (!/^\d{6}$/.test(form.pincode.trim())) {
       setError("Pincode must be exactly 6 digits.");
@@ -139,7 +105,7 @@ export function MerchantOnboardingForm({
           email: form.email.trim().toLowerCase(),
           password: form.password,
           currentRevenue: form.currentRevenue ? Number(form.currentRevenue) : 0,
-          itemCategories
+          itemCategories: ["cafe"]
         })
       });
 
@@ -158,6 +124,9 @@ export function MerchantOnboardingForm({
       }
 
       resetForm();
+      setSuccess(
+        "Merchant created. They can sign in at the merchant app with email and password (OTP required)."
+      );
       router.refresh();
       onSuccess?.();
     } catch {
@@ -177,7 +146,7 @@ export function MerchantOnboardingForm({
             type="text"
             value={form.shopName}
             onChange={(e) => updateField("shopName", e.target.value)}
-            placeholder="e.g. Sunrise General Store"
+            placeholder="e.g. Sunrise Cafe"
             required
           />
         </div>
@@ -243,7 +212,7 @@ export function MerchantOnboardingForm({
             type="email"
             value={form.email}
             onChange={(e) => updateField("email", e.target.value)}
-            placeholder="owner@shop.in"
+            placeholder="owner@cafe.in"
             required
             autoComplete="off"
           />
@@ -277,32 +246,18 @@ export function MerchantOnboardingForm({
         </div>
 
         <div className="onboard-field onboard-field--wide">
-          <label>Item Categories</label>
-          <div className="onboard-categories">
-            {CATEGORY_OPTIONS.map((category) => (
-              <label key={category} className="onboard-category-chip">
-                <input
-                  type="checkbox"
-                  checked={categories.includes(category)}
-                  onChange={() => toggleCategory(category)}
-                />
-                <span>{category}</span>
-              </label>
-            ))}
-          </div>
-          <input
-            type="text"
-            className="onboard-custom-categories"
-            value={form.customCategories}
-            onChange={(e) => updateField("customCategories", e.target.value)}
-            placeholder="Additional categories (comma-separated)"
-          />
+          <p className="onboard-hint">Category: Cafe (platform default)</p>
         </div>
       </div>
 
       {error && (
         <div className="onboard-alert onboard-alert--error" role="alert">
           {error}
+        </div>
+      )}
+      {success && (
+        <div className="onboard-alert onboard-alert--success" role="status">
+          {success}
         </div>
       )}
 
@@ -323,7 +278,7 @@ export function MerchantOnboardingForm({
           <p className="dash-eyebrow">Merchant Onboarding</p>
           <h2 className="onboard-title">Add New Merchant</h2>
           <p className="onboard-subtitle">
-            Register a shop with owner credentials and business profile details.
+            Register a cafe with owner credentials. Starter templates are assigned automatically.
           </p>
         </div>
       </div>

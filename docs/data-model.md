@@ -50,10 +50,14 @@ Constraints:
 - `name` (text, not null)
 - `mobile` (varchar(20), not null)
 - `location` (text)
+- `pincode` (varchar(6), customer home pincode)
+- `age` (smallint, optional)
+- `whatsapp_opt_in` (boolean, default true)
 - `notes` (text)
 - `total_spend` (numeric(12,2), default 0)
 - `total_visits` (int, default 0)
 - `last_visit` (timestamptz)
+- `lifecycle_tier` (smallint, 0–4; active visit group for automation)
 - `created_at`, `updated_at` (timestamptz)
 
 Constraints and indexes:
@@ -69,6 +73,8 @@ Constraints and indexes:
 - `customer_id` (uuid, fk -> customers.id)
 - `billing_amount` (numeric(12,2), not null)
 - `visit_at` (timestamptz, not null)
+- `age_at_visit` (smallint, optional)
+- `notes` (text)
 - `source` (text, default `walk_in`)
 - `created_at` (timestamptz)
 
@@ -91,14 +97,32 @@ Constraints:
 
 - `id` (uuid, pk)
 - `merchant_id` (uuid, nullable for global templates)
-- `name` (text, not null)
+- `name` (text, not null; must match Meta-approved template name)
 - `category` (text, not null)
 - `language_code` (varchar(10), default `en`)
-- `body` (text, not null)
+- `body` (text, not null; supports `{{name}}`, `{{shop_name}}` placeholders)
+- `header_text`, `footer_text` (text)
+- `header_image_url` (text, optional Meta image header)
+- `buttons` (jsonb, max 3)
+- `visit_group` (enum: `first_visit`, `second_visit`, `third_visit`, `fourth_visit`)
+- `lifecycle_day` (enum: `day_0`, `day_3`, `day_7`, `day_14`)
 - `cta_link` (text)
-- `is_global` (boolean, default false)
+- `is_global`, `is_starter_pack` (boolean)
 - `approval_status` (enum: `draft`, `approved`, `rejected`)
 - `created_at`, `updated_at` (timestamptz)
+
+### lifecycle_schedules
+
+- `id` (uuid, pk)
+- `merchant_id`, `customer_id`, `visit_id` (uuid, fk)
+- `visit_group`, `lifecycle_day` (text)
+- `template_id` (uuid, fk)
+- `scheduled_at` (timestamptz)
+- `status` (enum: `pending`, `sent`, `cancelled`, `failed`)
+- `bull_job_id` (text)
+- `sent_message_id` (uuid, fk -> messages.id)
+
+Unique (`customer_id`, `visit_id`, `lifecycle_day`)
 
 ### campaigns
 
@@ -112,6 +136,9 @@ Constraints:
 - `sent_count` (int, default 0)
 - `delivered_count` (int, default 0)
 - `failed_count` (int, default 0)
+- `audience_rules` (jsonb, default `{}`)
+- `manual_include_ids` (uuid[], default `{}`)
+- `manual_exclude_ids` (uuid[], default `{}`)
 - `created_at`, `updated_at` (timestamptz)
 
 Indexes:
@@ -120,20 +147,33 @@ Indexes:
 ### campaign_audiences
 
 - `id` (uuid, pk)
-- `merchant_id` (uuid, fk)
 - `campaign_id` (uuid, fk -> campaigns.id)
 - `customer_id` (uuid, fk -> customers.id)
-- `snapshot_payload` (jsonb, not null)
+- `mobile` (varchar(20), not null)
 - `created_at` (timestamptz)
 
 Constraints:
 - unique (`campaign_id`, `customer_id`)
 
+### daily_merchant_metrics
+
+- `merchant_id`, `metric_date` (unique)
+- `new_customers`, `visits`, `revenue`, `messages_sent`, `messages_delivered`, `messages_read`, `active_customers`
+
+### merchant_send_quotas
+
+- `merchant_id` (pk), `daily_cap`, `sent_today`, `quota_date`
+
+### platform_send_quota
+
+- Single-row platform daily cap counter
+
 ### messages
 
 - `id` (uuid, pk)
 - `merchant_id` (uuid, fk)
-- `campaign_id` (uuid, fk)
+- `campaign_id` (uuid, fk, nullable for lifecycle sends)
+- `lifecycle_schedule_id` (uuid, fk, optional)
 - `customer_id` (uuid, fk)
 - `provider` (text, not null)
 - `provider_message_id` (text)

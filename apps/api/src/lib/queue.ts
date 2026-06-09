@@ -12,6 +12,7 @@ const defaultJobOptions: JobsOptions = {
 };
 
 let campaignDispatchQueue: Queue | null = null;
+let lifecycleDispatchQueue: Queue | null = null;
 
 export function getCampaignDispatchQueue() {
   if (!campaignDispatchQueue) {
@@ -21,4 +22,14 @@ export function getCampaignDispatchQueue() {
     });
   }
   return campaignDispatchQueue;
+}
+
+export function getLifecycleDispatchQueue() {
+  if (!lifecycleDispatchQueue) {
+    lifecycleDispatchQueue = new Queue("lifecycle_dispatch_queue", {
+      connection: { url: env.REDIS_URL },
+      defaultJobOptions
+    });
+  }
+  return lifecycleDispatchQueue;
 }

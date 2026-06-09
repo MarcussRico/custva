@@ -9,7 +9,9 @@ import { authRouter } from "./modules/auth/routes.js";
 import { customersRouter } from "./modules/customers/routes.js";
 import { campaignsRouter } from "./modules/campaigns/routes.js";
 import { analyticsRouter } from "./modules/analytics/routes.js";
+import { merchantsRouter } from "./modules/merchants/routes.js";
 import { adminRouter } from "./modules/admin/routes.js";
+import { templatesRouter } from "./modules/templates/routes.js";
 import { webhookRouter } from "./modules/webhooks/routes.js";
 import { errorHandler } from "./middleware/error-handler.js";
 
@@ -30,6 +32,8 @@ app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/webhooks", webhookRouter);
 app.use("/api/v1/customers", requireAuth, customersRouter);
 app.use("/api/v1/campaigns", requireAuth, campaignsRouter);
+app.use("/api/v1/merchants", requireAuth, merchantsRouter);
+app.use("/api/v1/templates", requireAuth, templatesRouter);
 app.use("/api/v1/analytics", requireAuth, analyticsRouter);
 app.use("/api/v1/admin", requireAuth, adminRouter);
 
