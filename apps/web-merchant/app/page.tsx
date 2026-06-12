@@ -259,7 +259,7 @@ export default function LandingPage() {
           <span className="lp-tag">Why Now?</span>
           <h2 className="lp-section-title">The perfect time to systemise retention</h2>
           <p className="lp-section-sub">
-            The market is shifting fast. Here's why the best offline businesses are acting now.
+            The market is shifting fast. Here&apos;s why the best offline businesses are acting now.
           </p>
         </div>
         <div className="lp-why-grid">
