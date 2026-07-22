@@ -2,12 +2,12 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { requireOtpSecret } from "./auth-headers";
 
-const OTP_JWT_SECRET = requireOtpSecret(
-  "OTP_JWT_SECRET",
-  "dev-otp-secret-change-in-production"
-);
 const OTP_TTL_SECONDS = 10 * 60; // 10 minutes
 const OTP_MAX_ATTEMPTS = 5;
+
+function otpSecret() {
+  return requireOtpSecret("OTP_JWT_SECRET", "dev-otp-secret-change-in-production");
+}
 
 export interface OtpPayload {
   email: string;
@@ -21,7 +21,6 @@ export interface OtpPayload {
 
 /** Generate a cryptographically secure 6-digit OTP */
 export function generateOtp(): string {
-  // Use crypto.randomInt to avoid modulo bias
   const n = crypto.randomInt(100000, 1000000);
   return String(n);
 }
@@ -43,14 +42,13 @@ export function safeCompareOtp(a: string, b: string): boolean {
 
 /** Sign the OTP pending payload into a JWT cookie value */
 export function signOtpCookie(payload: Omit<OtpPayload, "iat" | "exp">): string {
-  return jwt.sign(payload, OTP_JWT_SECRET, { expiresIn: OTP_TTL_SECONDS });
+  return jwt.sign(payload, otpSecret(), { expiresIn: OTP_TTL_SECONDS });
 }
 
 /** Verify and decode the OTP pending cookie. Returns null if invalid or expired. */
 export function verifyOtpCookie(token: string): OtpPayload | null {
   try {
-    const decoded = jwt.verify(token, OTP_JWT_SECRET) as OtpPayload;
-    return decoded;
+    return jwt.verify(token, otpSecret()) as OtpPayload;
   } catch {
     return null;
   }

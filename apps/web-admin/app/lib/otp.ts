@@ -2,12 +2,15 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { requireOtpSecret } from "./auth-headers";
 
-const OTP_JWT_SECRET = requireOtpSecret(
-  "ADMIN_OTP_JWT_SECRET",
-  "dev-admin-otp-secret-change-in-production"
-);
 const OTP_TTL_SECONDS = 10 * 60; // 10 minutes
 export const OTP_MAX_ATTEMPTS = 5;
+
+function otpSecret() {
+  return requireOtpSecret(
+    "ADMIN_OTP_JWT_SECRET",
+    "dev-admin-otp-secret-change-in-production"
+  );
+}
 
 export interface AdminOtpPayload {
   email: string;
@@ -40,13 +43,13 @@ export function safeCompareOtp(a: string, b: string): boolean {
 export function signOtpCookie(
   payload: Omit<AdminOtpPayload, "iat" | "exp">
 ): string {
-  return jwt.sign(payload, OTP_JWT_SECRET, { expiresIn: OTP_TTL_SECONDS });
+  return jwt.sign(payload, otpSecret(), { expiresIn: OTP_TTL_SECONDS });
 }
 
 /** Verify and decode the OTP cookie — returns null if invalid or expired */
 export function verifyOtpCookie(token: string): AdminOtpPayload | null {
   try {
-    return jwt.verify(token, OTP_JWT_SECRET) as AdminOtpPayload;
+    return jwt.verify(token, otpSecret()) as AdminOtpPayload;
   } catch {
     return null;
   }

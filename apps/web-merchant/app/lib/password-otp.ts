@@ -2,12 +2,12 @@ import jwt from "jsonwebtoken";
 import { requireOtpSecret } from "./auth-headers";
 import { generateOtp, hashOtp, safeCompareOtp, signOtpCookie } from "./otp";
 
-const OTP_JWT_SECRET = requireOtpSecret(
-  "OTP_JWT_SECRET",
-  "dev-otp-secret-change-in-production"
-);
 const OTP_TTL_SECONDS = 10 * 60;
 const OTP_MAX_ATTEMPTS = 5;
+
+function otpSecret() {
+  return requireOtpSecret("OTP_JWT_SECRET", "dev-otp-secret-change-in-production");
+}
 
 export interface PasswordOtpPayload {
   email: string;
@@ -19,12 +19,12 @@ export interface PasswordOtpPayload {
 }
 
 export function signPasswordOtpCookie(payload: Omit<PasswordOtpPayload, "iat" | "exp">): string {
-  return jwt.sign(payload, OTP_JWT_SECRET, { expiresIn: OTP_TTL_SECONDS });
+  return jwt.sign(payload, otpSecret(), { expiresIn: OTP_TTL_SECONDS });
 }
 
 export function verifyPasswordOtpCookie(token: string): PasswordOtpPayload | null {
   try {
-    return jwt.verify(token, OTP_JWT_SECRET) as PasswordOtpPayload;
+    return jwt.verify(token, otpSecret()) as PasswordOtpPayload;
   } catch {
     return null;
   }
