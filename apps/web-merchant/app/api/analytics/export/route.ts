@@ -1,16 +1,13 @@
 import { cookies } from "next/headers";
+import { merchantAuthHeaders } from "../../../lib/auth-headers";
 
 const API_BASE = process.env.CUSTVA_API_BASE_URL ?? "http://localhost:4000/api/v1";
-const DEV_MERCHANT_ID =
-  process.env.CUSTVA_DEV_MERCHANT_ID ?? "00000000-0000-0000-0000-000000000010";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const type = url.searchParams.get("type") ?? "customers";
   const token = cookies().get("custva_merchant_access_token")?.value;
-  const headers: Record<string, string> = token
-    ? { Authorization: `Bearer ${token}` }
-    : { "x-dev-merchant-id": DEV_MERCHANT_ID };
+  const headers = merchantAuthHeaders(token);
 
   const response = await fetch(`${API_BASE}/analytics/export?type=${type}`, {
     headers,

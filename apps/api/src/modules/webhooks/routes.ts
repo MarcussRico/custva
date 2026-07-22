@@ -1,9 +1,45 @@
-import { Router } from "express";
-import { sendSuccess } from "../../lib/api-response.js";
-import { env } from "../../config.js";
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { Router, type Request, type Response, type NextFunction } from "express";
+import { sendError, sendSuccess } from "../../lib/api-response.js";
+import { env, isProduction } from "../../config.js";
 import { query } from "../../lib/db.js";
 
 export const webhookRouter: Router = Router();
+
+function verifyWhatsAppSignature(req: Request, res: Response, next: NextFunction) {
+  const appSecret = env.WA_APP_SECRET;
+  if (!appSecret) {
+    if (isProduction) {
+      return sendError(req, res, "INTERNAL_ERROR", "Webhook secret not configured", 500);
+    }
+    // Local/dev without Meta secret: allow unsigned payloads
+    return next();
+  }
+
+  const signature = req.headers["x-hub-signature-256"];
+  if (typeof signature !== "string" || !signature.startsWith("sha256=")) {
+    return sendError(req, res, "AUTH_FORBIDDEN", "Missing webhook signature", 401);
+  }
+
+  const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
+  if (!rawBody) {
+    return sendError(req, res, "VALIDATION_ERROR", "Missing raw body for signature check", 400);
+  }
+
+  const expected = createHmac("sha256", appSecret).update(rawBody).digest("hex");
+  const received = signature.slice("sha256=".length);
+  const expectedBuf = Buffer.from(expected, "hex");
+  const receivedBuf = Buffer.from(received, "hex");
+
+  if (
+    expectedBuf.length !== receivedBuf.length ||
+    !timingSafeEqual(expectedBuf, receivedBuf)
+  ) {
+    return sendError(req, res, "AUTH_FORBIDDEN", "Invalid webhook signature", 401);
+  }
+
+  return next();
+}
 
 webhookRouter.get("/whatsapp", (req, res) => {
   const mode = req.query["hub.mode"];
@@ -17,7 +53,7 @@ webhookRouter.get("/whatsapp", (req, res) => {
   return res.status(403).send("Forbidden");
 });
 
-webhookRouter.post("/whatsapp", async (req, res) => {
+webhookRouter.post("/whatsapp", verifyWhatsAppSignature, async (req, res) => {
   const entry = (req.body as { entry?: Array<{ changes?: Array<{ value?: unknown }> }> }).entry;
   const value = entry?.[0]?.changes?.[0]?.value as
     | {

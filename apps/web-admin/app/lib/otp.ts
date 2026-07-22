@@ -1,8 +1,11 @@
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
+import { requireOtpSecret } from "./auth-headers";
 
-const OTP_JWT_SECRET =
-  process.env.ADMIN_OTP_JWT_SECRET ?? "dev-admin-otp-secret-change-in-production";
+const OTP_JWT_SECRET = requireOtpSecret(
+  "ADMIN_OTP_JWT_SECRET",
+  "dev-admin-otp-secret-change-in-production"
+);
 const OTP_TTL_SECONDS = 10 * 60; // 10 minutes
 export const OTP_MAX_ATTEMPTS = 5;
 

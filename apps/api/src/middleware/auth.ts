@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import type { Request, Response, NextFunction } from "express";
 import { sendError } from "../lib/api-response.js";
-import { env } from "../config.js";
+import { env, isProduction } from "../config.js";
 
 interface JwtPayload {
   sub: string;
@@ -10,10 +10,11 @@ interface JwtPayload {
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
-  if (process.env.NODE_ENV !== "production") {
+  // Dev-only bypass. Never enabled when NODE_ENV=production.
+  if (!isProduction) {
     const devMerchantId = req.headers["x-dev-merchant-id"];
     const devRole = req.headers["x-dev-role"];
-    if (typeof devMerchantId === "string") {
+    if (typeof devMerchantId === "string" && process.env.CUSTVA_DEV_MERCHANT_ID) {
       req.auth = {
         userId: "dev-user",
         merchantId: devMerchantId,

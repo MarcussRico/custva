@@ -16,7 +16,7 @@
     "dev:api": "corepack pnpm --filter @custva/api dev",
     "dev:worker": "corepack pnpm --filter @custva/worker dev",
     "lint": "corepack pnpm -r lint",
-    "format": "corepack pnpm -r format",
+    "format": "echo \"No formatters configured yet — see HANDOVER.md\"",
     "typecheck": "corepack pnpm -r typecheck",
     "test": "corepack pnpm -r test",
     "build": "corepack pnpm -r build",

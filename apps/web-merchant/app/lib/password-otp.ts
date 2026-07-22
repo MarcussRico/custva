@@ -1,7 +1,11 @@
 import jwt from "jsonwebtoken";
+import { requireOtpSecret } from "./auth-headers";
 import { generateOtp, hashOtp, safeCompareOtp, signOtpCookie } from "./otp";
 
-const OTP_JWT_SECRET = process.env.OTP_JWT_SECRET ?? "dev-otp-secret-change-in-production";
+const OTP_JWT_SECRET = requireOtpSecret(
+  "OTP_JWT_SECRET",
+  "dev-otp-secret-change-in-production"
+);
 const OTP_TTL_SECONDS = 10 * 60;
 const OTP_MAX_ATTEMPTS = 5;
 

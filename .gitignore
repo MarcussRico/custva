@@ -5,9 +5,27 @@ node_modules/
 dist/
 build/
 coverage/
+
+# Env files (keep examples)
 .env
 .env.local
 .env.*.local
+.env.production
+.env.development
+.env.staging
+.env.*
+!.env.example
+!**/.env.example
+!**/.env*.example
+
+# IDE / local tooling
+.cursor/
+.DS_Store
+.idea/
+.vscode/
+
 *.log
 *.tmp
 *.tsbuildinfo
+*.pem
+*.key

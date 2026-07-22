@@ -5,9 +5,13 @@ import { randomUUID } from "node:crypto";
 import { Pool, type PoolClient } from "pg";
 import { WhatsAppCloudApiAdapter } from "@custva/whatsapp-adapters";
 
+const isProd = process.env.NODE_ENV === "production";
+
 dotenv.config({ path: "../../.env" });
 dotenv.config({ path: "../../.env.local" });
-dotenv.config({ path: "../../.env.example" });
+if (!isProd) {
+  dotenv.config({ path: "../../.env.example" });
+}
 
 const redisConnection = {
   url: process.env.REDIS_URL ?? "redis://localhost:6379"
@@ -15,6 +19,13 @@ const redisConnection = {
 const db = new Pool({
   connectionString: process.env.DATABASE_URL
 });
+
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL is required");
+}
+if (!process.env.REDIS_URL && isProd) {
+  throw new Error("REDIS_URL is required in production");
+}
 
 const MERCHANT_DAILY_CAP = Number(process.env.WA_MERCHANT_DAILY_CAP ?? 500);
 const PLATFORM_DAILY_CAP = Number(process.env.WA_PLATFORM_DAILY_CAP ?? 100000);
@@ -26,6 +37,12 @@ const waAdapter =
         accessToken: process.env.WA_ACCESS_TOKEN
       })
     : null;
+
+if (isProd && !waAdapter) {
+  throw new Error(
+    "WA_PHONE_NUMBER_ID and WA_ACCESS_TOKEN are required in production (refusing silent mock mode)"
+  );
+}
 
 const defaultJobOptions: JobsOptions = {
   attempts: 5,

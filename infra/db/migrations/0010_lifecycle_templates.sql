@@ -16,8 +16,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_templates_merchant_lifecycle_active
   ON templates (merchant_id, visit_group, lifecycle_day)
   WHERE archived_at IS NULL AND visit_group IS NOT NULL;
 
--- Archive all existing templates
-UPDATE templates SET archived_at = NOW(), updated_at = NOW() WHERE archived_at IS NULL;
+-- One-shot archive of pre-lifecycle templates.
+-- Skip if a lifecycle catalog is already present (safe if re-run without tracking).
+UPDATE templates SET archived_at = NOW(), updated_at = NOW()
+WHERE archived_at IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM templates
+    WHERE is_global = TRUE AND visit_group IS NOT NULL AND archived_at IS NULL
+  );
 
 -- Seed 16 global lifecycle templates (Meta names must match approved templates)
 INSERT INTO templates (

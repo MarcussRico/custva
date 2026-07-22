@@ -5,7 +5,9 @@ import dotenv from "dotenv";
 
 dotenv.config({ path: ".env" });
 dotenv.config({ path: ".env.local" });
-dotenv.config({ path: ".env.example" });
+if (process.env.NODE_ENV !== "production") {
+  dotenv.config({ path: ".env.example" });
+}
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -20,11 +22,54 @@ const files = (await fs.readdir(migrationsDir))
 const client = new Client({ connectionString: databaseUrl });
 await client.connect();
 
+await client.query(`
+  CREATE TABLE IF NOT EXISTS schema_migrations (
+    filename TEXT PRIMARY KEY,
+    applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )
+`);
+
+const applied = await client.query<{ filename: string }>(
+  `SELECT filename FROM schema_migrations`
+);
+const appliedSet = new Set(applied.rows.map((r) => r.filename));
+
+// Bootstrap existing databases that already have schema but no tracking rows
+if (appliedSet.size === 0) {
+  const tables = await client.query<{ exists: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1 FROM information_schema.tables
+       WHERE table_schema = 'public' AND table_name = 'merchants'
+     ) AS exists`
+  );
+  if (tables.rows[0]?.exists) {
+    for (const file of files) {
+      await client.query(`INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING`, [
+        file
+      ]);
+      appliedSet.add(file);
+      console.log(`Bootstrapped migration tracking: ${file}`);
+    }
+  }
+}
+
 for (const file of files) {
+  if (appliedSet.has(file)) {
+    console.log(`Skip migration (already applied): ${file}`);
+    continue;
+  }
+
   const sql = await fs.readFile(path.join(migrationsDir, file), "utf8");
-  await client.query(sql);
-  // eslint-disable-next-line no-console
-  console.log(`Applied migration: ${file}`);
+  try {
+    await client.query("BEGIN");
+    await client.query(sql);
+    await client.query(`INSERT INTO schema_migrations (filename) VALUES ($1)`, [file]);
+    await client.query("COMMIT");
+    console.log(`Applied migration: ${file}`);
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  }
 }
 
 await client.end();
