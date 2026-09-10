@@ -69,3 +69,4 @@ export * from "./segmentation.js";
 export * from "./attribution.js";
 export * from "./meta-templates.js";
 export * from "./holdout.js";
+export * from "./media.js";

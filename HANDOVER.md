@@ -44,6 +44,8 @@ Custva is an **MVP** monorepo for cafe customer retention and WhatsApp engagemen
 | `WA_PHONE_NUMBER_ID` | prod | Required when `NODE_ENV=production` |
 | `WA_ACCESS_TOKEN` | prod | Required when `NODE_ENV=production` |
 | `WA_APP_SECRET` | prod | Meta app secret for webhook HMAC |
+| `WA_BUSINESS_ACCOUNT_ID` | prod | WABA id. Required to create templates and poll their approval status |
+| `WA_APP_ID` | prod | Meta App id. Required only to upload template header images |
 | `WA_WEBHOOK_VERIFY_TOKEN` | yes for WA | Subscribe challenge |
 | `WA_MERCHANT_DAILY_CAP` | no | Default 500 |
 | `WA_PLATFORM_DAILY_CAP` | no | Default 100000 |

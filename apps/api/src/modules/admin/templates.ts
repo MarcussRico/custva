@@ -3,9 +3,14 @@ import { z } from "zod";
 import { sendError, sendSuccess } from "../../lib/api-response.js";
 import { query, withTransaction } from "../../lib/db.js";
 import { writeAudit } from "../../lib/audit.js";
+import { createHash } from "node:crypto";
+import express from "express";
 import {
+  HEADER_IMAGE,
   buildMetaTemplateComponents,
+  isBlocked,
   toMetaTemplateName,
+  validateHeaderImage,
   validateTemplateForMeta
 } from "@custva/shared";
 import { WhatsAppCloudApiAdapter } from "@custva/whatsapp-adapters";
@@ -390,9 +395,158 @@ function templateAdmin() {
   return new WhatsAppCloudApiAdapter({
     phoneNumberId: process.env.WA_PHONE_NUMBER_ID ?? "",
     accessToken: process.env.WA_ACCESS_TOKEN,
-    businessAccountId: process.env.WA_BUSINESS_ACCOUNT_ID
+    businessAccountId: process.env.WA_BUSINESS_ACCOUNT_ID,
+    appId: process.env.WA_APP_ID
   });
 }
+
+/**
+ * Upload a header image for a template.
+ *
+ * Raw bytes rather than multipart or base64: multipart would mean adding a
+ * parser dependency for one route, and base64 inflates a 5 MB image to 6.7 MB,
+ * which is over the JSON body limit anyway. The client POSTs the file with its
+ * real Content-Type.
+ *
+ * The image is validated, stored, and pushed to Meta in one call, because a
+ * stored image with no handle and a handle with no stored image are both
+ * useless on their own.
+ */
+adminTemplatesRouter.post(
+  "/:id/header-image",
+  express.raw({
+    type: [...HEADER_IMAGE.allowedMimeTypes],
+    limit: HEADER_IMAGE.maxBytes
+  }),
+  async (req, res) => {
+    const body = req.body as Buffer | undefined;
+    if (!Buffer.isBuffer(body)) {
+      return sendError(
+        req,
+        res,
+        "VALIDATION_ERROR",
+        "Send the image as a raw body with Content-Type image/jpeg or image/png",
+        415
+      );
+    }
+
+    const bytes = new Uint8Array(body);
+    const { info, problems } = validateHeaderImage(bytes);
+
+    if (!info || isBlocked(problems)) {
+      return sendError(
+        req,
+        res,
+        "VALIDATION_ERROR",
+        "This image cannot be used as a template header",
+        422,
+        problems.map((p) => ({ field: "image", issue: p.message }))
+      );
+    }
+
+    const template = await query<{ id: string; merchant_id: string | null }>(
+      `SELECT id, merchant_id FROM templates WHERE id = $1 AND archived_at IS NULL`,
+      [req.params.id]
+    );
+    if (!template.rowCount) {
+      return sendError(req, res, "RESOURCE_NOT_FOUND", "Template not found", 404);
+    }
+    const merchantId = template.rows[0].merchant_id;
+    const checksum = createHash("sha256").update(body).digest("hex");
+
+    /* The same photo uploaded twice should not cost two round trips to Meta. */
+    const existing = await query<{ meta_handle: string | null }>(
+      `SELECT meta_handle FROM template_media
+        WHERE checksum = $1 AND meta_handle IS NOT NULL
+          AND (merchant_id = $2 OR ($2 IS NULL AND merchant_id IS NULL))
+        LIMIT 1`,
+      [checksum, merchantId]
+    );
+
+    let handle = existing.rows[0]?.meta_handle ?? null;
+    let reused = Boolean(handle);
+
+    if (!handle) {
+      const adapter = templateAdmin();
+      if (!adapter) {
+        return sendError(
+          req,
+          res,
+          "PROVIDER_ERROR",
+          "WA_ACCESS_TOKEN, WA_BUSINESS_ACCOUNT_ID and WA_APP_ID must be configured to upload header images",
+          503
+        );
+      }
+      try {
+        const uploaded = await adapter.uploadHeaderImage({
+          bytes,
+          mimeType: info.mimeType,
+          fileName: `${toMetaTemplateName(req.params.id)}.${info.mimeType === "image/png" ? "png" : "jpg"}`
+        });
+        handle = uploaded.handle;
+        reused = false;
+      } catch (error) {
+        return sendError(
+          req,
+          res,
+          "PROVIDER_ERROR",
+          error instanceof Error ? error.message : "Upload to Meta failed",
+          502
+        );
+      }
+    }
+
+    const media = await query<{ id: string }>(
+      `INSERT INTO template_media (
+         merchant_id, template_id, mime_type, byte_size, width, height,
+         checksum, data, meta_handle, meta_uploaded_at
+       )
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
+       RETURNING id`,
+      [
+        merchantId,
+        req.params.id,
+        info.mimeType,
+        info.bytes,
+        info.width,
+        info.height,
+        checksum,
+        body,
+        handle
+      ]
+    );
+
+    /* The handle is what template submission reads (see 0018). */
+    await query(
+      `UPDATE templates
+          SET header_image_handle = $1, meta_status = NULL, updated_at = NOW()
+        WHERE id = $2`,
+      [handle, req.params.id]
+    );
+
+    await writeAudit(
+      req,
+      "template.header_image_uploaded",
+      "template",
+      req.params.id,
+      null,
+      { mediaId: media.rows[0].id, width: info.width, height: info.height, reused }
+    );
+
+    return sendSuccess(req, res, {
+      mediaId: media.rows[0].id,
+      width: info.width,
+      height: info.height,
+      bytes: info.bytes,
+      mimeType: info.mimeType,
+      reusedExistingUpload: reused,
+      /* Non-blocking notes, e.g. that WhatsApp will crop this aspect. */
+      warnings: problems.map((p) => p.message),
+      /* Changing the image invalidates any prior Meta approval. */
+      note: "Header image set. The template must be resubmitted to Meta for approval."
+    });
+  }
+);
 
 /**
  * Dry run. Meta's review is slow and its rejection reasons are terse, so every

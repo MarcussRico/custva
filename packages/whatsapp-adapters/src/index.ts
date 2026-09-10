@@ -61,6 +61,16 @@ export interface WhatsAppAdapter {
 export interface WhatsAppTemplateAdmin {
   createTemplate(input: CreateTemplateInput): Promise<CreateTemplateOutput>;
   fetchTemplateStatus(name: string): Promise<TemplateStatusOutput | null>;
+  /**
+   * Meta will not take a URL for a template header at registration time. It
+   * wants a handle from its resumable upload API, which is a different endpoint
+   * on a different id (the App, not the WABA or the phone number).
+   */
+  uploadHeaderImage(input: {
+    bytes: Uint8Array;
+    mimeType: string;
+    fileName?: string;
+  }): Promise<{ handle: string }>;
 }
 
 export class WhatsAppCloudApiAdapter
@@ -72,6 +82,8 @@ export class WhatsAppCloudApiAdapter
       accessToken: string;
       /** Required for template management; sending does not need it. */
       businessAccountId?: string;
+      /** Meta App id. Required only for uploading header images. */
+      appId?: string;
       graphVersion?: string;
     }
   ) {}
@@ -135,6 +147,72 @@ export class WhatsAppCloudApiAdapter
       status: payload.status ?? "PENDING",
       category: payload.category
     };
+  }
+
+  /**
+   * Two-step resumable upload. Step one opens a session against the App id;
+   * step two sends the bytes and returns the handle.
+   *
+   * Step two uses `Authorization: OAuth <token>` rather than the `Bearer`
+   * scheme every other Graph call takes. That is Meta's documented behaviour
+   * for this endpoint, not a mistake — sending Bearer here fails with an
+   * unhelpful error.
+   */
+  async uploadHeaderImage(input: {
+    bytes: Uint8Array;
+    mimeType: string;
+    fileName?: string;
+  }): Promise<{ handle: string }> {
+    if (!this.config.appId) {
+      throw new Error(
+        "WA_APP_ID is required to upload header images. It is the Meta App id, which is not the same as the WhatsApp Business Account id or the phone number id."
+      );
+    }
+
+    const sessionUrl = new URL(
+      `https://graph.facebook.com/${this.version}/${this.config.appId}/uploads`
+    );
+    sessionUrl.searchParams.set("file_length", String(input.bytes.length));
+    sessionUrl.searchParams.set("file_type", input.mimeType);
+    if (input.fileName) sessionUrl.searchParams.set("file_name", input.fileName);
+
+    const sessionResponse = await fetch(sessionUrl, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${this.config.accessToken}` }
+    });
+    const session = (await sessionResponse.json()) as {
+      id?: string;
+      error?: { message?: string };
+    };
+    if (!sessionResponse.ok || !session.id) {
+      throw new Error(
+        `Could not start the upload with Meta: ${session.error?.message ?? sessionResponse.status}`
+      );
+    }
+
+    const uploadResponse = await fetch(
+      `https://graph.facebook.com/${this.version}/${session.id}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `OAuth ${this.config.accessToken}`,
+          file_offset: "0",
+          "Content-Type": "application/octet-stream"
+        },
+        body: input.bytes as unknown as BodyInit
+      }
+    );
+    const uploaded = (await uploadResponse.json()) as {
+      h?: string;
+      error?: { message?: string };
+    };
+    if (!uploadResponse.ok || !uploaded.h) {
+      throw new Error(
+        `Meta accepted the upload session but not the file: ${uploaded.error?.message ?? uploadResponse.status}`
+      );
+    }
+
+    return { handle: uploaded.h };
   }
 
   /** Poll the current review state for one template name. */

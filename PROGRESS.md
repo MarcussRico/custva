@@ -425,12 +425,43 @@ payload shape is unit-tested and the code paths typecheck, but the first real
 submission is where Meta's actual opinion arrives. Needs `WA_ACCESS_TOKEN` and
 the new `WA_BUSINESS_ACCOUNT_ID`.
 
-**M4 is only half done.** The schema and the IMAGE component are in place, but
-Meta needs a *handle* from its resumable upload API at registration time, not a
-URL — and nothing uploads. So "a picture on every message", which the landing
-page now promises, still has no path from a merchant's photo to an approved
-template. This is the largest remaining gap between the marketing and the
-product.
+**M4 — the image path now exists.** `POST /admin/templates/:id/header-image`
+takes the raw file, validates it, stores it, uploads it to Meta's resumable
+upload API and writes the handle onto the template, which is what
+`submit-to-meta` already reads.
+
+Raw bytes rather than multipart or base64: multipart means a parser dependency
+for one route, and base64 inflates a 5 MB image past the JSON body limit.
+
+Validation reads the actual bytes rather than trusting the Content-Type — a
+client can label a PDF `image/png` and Meta will not be fooled. It parses real
+dimensions (PNG from IHDR, JPEG by walking to the SOF marker, since there is no
+fixed offset), verified against the repo's own files:
+
+```
+msg-brownie.jpg   image/jpeg 736x552 89KB   warn: 1.33:1, WhatsApp will crop
+custva-mark.png   image/png  256x279 25KB   BLOCK: under 300px, looks soft
+```
+
+Aspect problems warn rather than block — WhatsApp crops instead of refusing, and
+a merchant may prefer their own framing. Size, type and corruption block.
+
+Storage round-trip through BYTEA verified byte-for-byte by checksum. The bytes
+are kept because Meta consumes the handle at registration, and a resubmitted
+template needs a *fresh* one — without the original, every wording change would
+mean asking the merchant to re-upload the same photo. Re-uploading an identical
+file reuses the existing handle instead of a second round trip.
+
+Setting an image clears `meta_status`, since changing the picture invalidates
+any approval Meta had already given.
+
+**Still unexercised:** the Meta call itself. Needs `WA_APP_ID` — the Meta *App*
+id, which is neither the WABA id nor the phone number id, a distinction that has
+cost people a lot of time. Now documented in `.env.example` and `HANDOVER.md`.
+
+**One product note the parser surfaced:** both landing-page message previews are
+4:3, but WhatsApp renders header images at about 1.91:1. The previews show a
+crop customers will not actually see.
 
 ### Phase D — Metrics and commission
 
@@ -575,7 +606,7 @@ extra cost, meaningfully better timing. Cheap to add once A2 computes gaps.
 | Question | Status |
 |---|---|
 | **Whose WhatsApp number sends?** | **Open, and it blocks SRS schema work.** The worker builds one adapter from `WA_PHONE_NUMBER_ID` / `WA_ACCESS_TOKEN` at startup; there are no per-merchant credentials in the schema. So every merchant sends from one Custva number. That means the cafe's customer hears from a business they don't recognise, quality rating is one shared pool where one merchant's complaints throttle everyone, Custva pays for every message, and attribution becomes bookkeeping rather than fact. Moving to per-merchant accounts (Meta Tech Provider + Embedded Signup) touches tenancy, credentials, onboarding and billing at once — cheap to decide now, expensive after the commission ledger exists |
-| **Image sourcing** — where do the per-message images actually come from? | **Open.** Assumption is merchants supply photos of their own product during onboarding. Nothing is built for upload, storage or Meta approval of image templates. This blocks the "picture on every message" promise now on the landing page. Folds into Phase C2/M4 |
+| **Image sourcing** — where do the per-message images come from? | **Path now exists** (upload, validate, store, hand to Meta). Still open commercially: who takes the photos, and when in onboarding. Bytes live in Postgres, which is right for a pilot and should move to object storage before scale |
 | Has anything ever been sent through real Meta credentials? | Almost certainly not — defect 6 means sends would fail. If anyone believes otherwise, something is configured outside the repo and needs to be seen |
 | Is the pilot clock running? | If there is a signed MOU with dates, it needs reconciling against a 6–10 week SRS build on top of Phase 0 |
 | Commission rate | Not set. Stored as a rate; commercial decision |
