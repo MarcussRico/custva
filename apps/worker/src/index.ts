@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-import { lifecycleBullJobId } from "@custva/shared";
+import { computeSegmentation, lifecycleBullJobId } from "@custva/shared";
 import { Queue, Worker, type JobsOptions } from "bullmq";
 import { randomUUID } from "node:crypto";
 import { Pool, type PoolClient } from "pg";
@@ -34,7 +34,8 @@ const waAdapter =
   process.env.WA_PHONE_NUMBER_ID && process.env.WA_ACCESS_TOKEN
     ? new WhatsAppCloudApiAdapter({
         phoneNumberId: process.env.WA_PHONE_NUMBER_ID,
-        accessToken: process.env.WA_ACCESS_TOKEN
+        accessToken: process.env.WA_ACCESS_TOKEN,
+        businessAccountId: process.env.WA_BUSINESS_ACCOUNT_ID
       })
     : null;
 
@@ -117,6 +118,55 @@ async function checkAndIncrementSendQuota(client: PoolClient, merchantId: string
   return true;
 }
 
+
+/**
+ * FR-I2 companion — the per-customer frequency cap.
+ *
+ * The existing quota is per *merchant* per day (500), which does nothing to
+ * stop one unlucky customer receiving every message a merchant sends. Meta's
+ * quality rating is driven by individual recipients blocking and reporting, so
+ * the cap that actually protects the sending number is the per-person one.
+ *
+ * Returns false when the customer has already had their allowance. The caller
+ * skips the send — this is not a failure, so it does not increment
+ * failed_count; the message simply was not appropriate to send.
+ */
+async function withinCustomerFrequencyCap(
+  client: PoolClient,
+  merchantId: string,
+  customerId: string
+): Promise<boolean> {
+  const settings = await client.query<{
+    customer_message_cap: number;
+    customer_message_cap_days: number;
+  }>(
+    `SELECT customer_message_cap, customer_message_cap_days
+       FROM merchants WHERE id = $1`,
+    [merchantId]
+  );
+  if (!settings.rowCount) return true;
+
+  const { customer_message_cap: cap, customer_message_cap_days: days } =
+    settings.rows[0];
+  if (cap <= 0) return true;
+
+  const recent = await client.query<{ count: string }>(
+    `SELECT COUNT(*) AS count FROM messages
+      WHERE customer_id = $1
+        AND created_at >= NOW() - ($2 * INTERVAL '1 day')`,
+    [customerId, days]
+  );
+
+  const sent = Number(recent.rows[0].count);
+  if (sent >= cap) {
+    console.log(
+      `Frequency cap: skipping send to customer ${customerId} (${sent}/${cap} in ${days}d)`
+    );
+    return false;
+  }
+  return true;
+}
+
 async function dispatchOne(
   client: PoolClient,
   data: {
@@ -129,6 +179,10 @@ async function dispatchOne(
     customerName?: string;
   }
 ) {
+  if (!(await withinCustomerFrequencyCap(client, data.merchantId, data.customerId))) {
+    return;
+  }
+
   const allowed = await checkAndIncrementSendQuota(client, data.merchantId);
   if (!allowed) {
     await client.query(
@@ -283,6 +337,8 @@ async function dispatchLifecycle(scheduleId: string) {
       customer_name: string;
       whatsapp_opt_in: boolean;
       template_name: string;
+      meta_template_name: string | null;
+      meta_status: string | null;
       language_code: string;
       body: string;
       header_text: string | null;
@@ -292,7 +348,7 @@ async function dispatchLifecycle(scheduleId: string) {
     }>(
       `SELECT ls.id AS schedule_id, ls.merchant_id, ls.customer_id, c.mobile, c.name AS customer_name, c.whatsapp_opt_in,
               t.name AS template_name, t.language_code, t.body, t.header_text, t.header_image_url,
-              t.buttons, m.business_name AS shop_name
+              t.buttons, t.meta_template_name, t.meta_status, m.business_name AS shop_name
        FROM lifecycle_schedules ls
        JOIN customers c ON c.id = ls.customer_id
        JOIN templates t ON t.id = ls.template_id
@@ -307,6 +363,29 @@ async function dispatchLifecycle(scheduleId: string) {
       await client.query(`UPDATE lifecycle_schedules SET status = 'cancelled' WHERE id = $1`, [
         scheduleId
       ]);
+      return;
+    }
+
+    /* M3 — a lifecycle message uses the same Meta-registered template as any
+       other send. If it is not APPROVED at Meta the send will be refused, so
+       fail the schedule here with a readable reason instead of burning a
+       WhatsApp API call to discover it. */
+    if (data.meta_status !== "APPROVED" || !data.meta_template_name) {
+      console.error(
+        `Lifecycle schedule ${scheduleId} skipped: template "${data.template_name}" is ` +
+          `${data.meta_status ?? "not submitted"} at Meta, not APPROVED.`
+      );
+      await client.query(`UPDATE lifecycle_schedules SET status = 'failed' WHERE id = $1`, [
+        scheduleId
+      ]);
+      return;
+    }
+
+    if (!(await withinCustomerFrequencyCap(client, data.merchant_id, data.customer_id))) {
+      await client.query(
+        `UPDATE lifecycle_schedules SET status = 'cancelled' WHERE id = $1`,
+        [data.schedule_id]
+      );
       return;
     }
 
@@ -340,7 +419,7 @@ async function dispatchLifecycle(scheduleId: string) {
 
         const result = await waAdapter.sendTemplateMessage({
           to: data.mobile,
-          templateName: data.template_name,
+          templateName: data.meta_template_name,
           languageCode: data.language_code ?? "en",
           header,
           bodyVariables,
@@ -421,9 +500,113 @@ async function reconcileLifecycleSchedules() {
   }
 }
 
+
+/**
+ * FR-S4 — the periodic segmentation sweep.
+ *
+ * This is the half of segmentation that is easy to leave out and fatal to
+ * omit: At-Risk and Dormant are states a customer enters by doing *nothing*.
+ * Recomputing only on visit-write means nobody is ever reclassified for not
+ * showing up, so nobody ever becomes At-Risk and the entire intervention model
+ * is inert. The product depends on a state transition that happens when no
+ * event occurs, so something has to go looking.
+ *
+ * The rules come from @custva/shared so the worker and the API cannot drift.
+ */
+async function sweepSegments() {
+  const client = await db.connect();
+  try {
+    const merchants = await client.query<{ id: string }>("SELECT id FROM merchants");
+
+    for (const { id: merchantId } of merchants.rows) {
+      // FR-S2 fallback: refresh the cached merchant median first.
+      const merchantMedian = await client.query<{ median_gap: string | null }>(
+        `WITH gaps AS (
+           SELECT EXTRACT(EPOCH FROM (
+                    visit_at - LAG(visit_at) OVER (PARTITION BY customer_id ORDER BY visit_at)
+                  )) / 86400.0 AS gap
+             FROM customer_visits WHERE merchant_id = $1
+         )
+         SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY gap) AS median_gap
+           FROM gaps WHERE gap IS NOT NULL AND gap > 0`,
+        [merchantId]
+      );
+      const medianGapDays =
+        merchantMedian.rows[0]?.median_gap == null
+          ? null
+          : Number(merchantMedian.rows[0].median_gap);
+
+      await client.query(
+        `UPDATE merchants SET median_gap_days = $1, median_gap_updated_at = NOW(),
+                              updated_at = NOW() WHERE id = $2`,
+        [medianGapDays, merchantId]
+      );
+
+      /* Only customers whose classification could have moved: their expected
+         revisit has passed, or they have never been classified. */
+      const due = await client.query<{
+        id: string;
+        total_visits: number;
+        last_visit: Date | null;
+      }>(
+        `SELECT id, total_visits, last_visit FROM customers
+          WHERE merchant_id = $1
+            AND (segment IS NULL OR expected_revisit_at IS NULL OR expected_revisit_at <= NOW())`,
+        [merchantId]
+      );
+
+      for (const customer of due.rows) {
+        const visits = await client.query<{ visit_at: Date }>(
+          `SELECT visit_at FROM customer_visits
+            WHERE customer_id = $1 ORDER BY visit_at DESC LIMIT 30`,
+          [customer.id]
+        );
+
+        const computed = computeSegmentation({
+          visitDates: visits.rows.map((v) => v.visit_at),
+          totalVisits: Number(customer.total_visits),
+          lastVisit: customer.last_visit,
+          merchantMedianGapDays: medianGapDays
+        });
+
+        await client.query(
+          `UPDATE customers
+              SET segment = $1, expected_gap_days = $2, expected_revisit_at = $3,
+                  segment_updated_at = NOW(), updated_at = NOW()
+            WHERE id = $4`,
+          [
+            computed.segment,
+            computed.expectedGapDays,
+            computed.expectedRevisitAt,
+            customer.id
+          ]
+        );
+      }
+
+      if (due.rowCount) {
+        console.log(
+          `Segment sweep: reclassified ${due.rowCount} customer(s) for merchant ${merchantId}`
+        );
+      }
+    }
+  } catch (error) {
+    console.error("Segment sweep failed", error);
+  } finally {
+    client.release();
+  }
+}
+
 setInterval(() => {
   void reconcileLifecycleSchedules();
 }, 15 * 60 * 1000);
+
+/* Hourly is plenty: segments move on a scale of days, and the sweep only
+   touches customers whose expected revisit has already passed. */
+setInterval(() => {
+  void sweepSegments();
+}, 60 * 60 * 1000);
+
+void sweepSegments();
 
 console.log(
   waAdapter

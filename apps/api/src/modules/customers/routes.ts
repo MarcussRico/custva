@@ -1,6 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
+import type { Segment } from "@custva/shared";
 import { query, withTransaction } from "../../lib/db.js";
+import { recomputeSegmentForCustomer } from "../../lib/segmentation-service.js";
+import { attributeVisit } from "../../lib/attribution-service.js";
 import { sendError, sendSuccess } from "../../lib/api-response.js";
 import { normalizeIndiaMobile, isValidIndiaMobile } from "../../lib/mobile.js";
 import { buildCustomerListQuery, customerListFilterSchema } from "../../lib/audience-engine.js";
@@ -25,7 +28,9 @@ const createCustomerSchema = z.object({
 const CUSTOMER_SELECT = `
   id, merchant_id AS "merchantId", name, mobile, pincode, age, location, notes,
   total_spend AS "totalSpend", total_visits AS "totalVisits", last_visit AS "lastVisit",
-  whatsapp_opt_in AS "whatsappOptIn", created_at AS "createdAt", updated_at AS "updatedAt"
+  whatsapp_opt_in AS "whatsappOptIn", created_at AS "createdAt", updated_at AS "updatedAt",
+  segment, expected_gap_days AS "expectedGapDays",
+  expected_revisit_at AS "expectedRevisitAt", segment_updated_at AS "segmentUpdatedAt"
 `;
 
 export const customersRouter: Router = Router();
@@ -85,12 +90,18 @@ customersRouter.post("/", async (req, res) => {
   let cancelledJobIds: string[] = [];
 
   const result = await withTransaction(async (client) => {
-    const existing = await client.query<{ id: string }>(
-      "SELECT id FROM customers WHERE merchant_id = $1 AND mobile = $2 LIMIT 1",
+    /* The segment is read here, before the rollup below increments total_visits
+       and moves last_visit. FR-A5 shields customers who were Loyal *at the
+       moment they returned* — and recording a visit is exactly what makes
+       someone look loyal. Reading it after the update would shield nearly every
+       return and attribution would never fire. */
+    const existing = await client.query<{ id: string; segment: Segment | null }>(
+      "SELECT id, segment FROM customers WHERE merchant_id = $1 AND mobile = $2 LIMIT 1",
       [merchantId, mobile]
     );
 
     let customerId = existing.rows[0]?.id;
+    const segmentAtVisit = existing.rows[0]?.segment ?? null;
     let isNew = false;
 
     if (!customerId) {
@@ -144,6 +155,30 @@ customersRouter.post("/", async (req, res) => {
       [customerId]
     );
 
+    /* FR-A1 — classify this visit organic or influenced. Deliberately before
+       the segment recompute below, using the segment captured at the top of
+       the transaction. */
+    await attributeVisit(client, {
+      merchantId,
+      customerId,
+      visitId,
+      visitAt: new Date(visitDate),
+      isFirstVisit: isNew,
+      segmentAtVisit,
+      billingAmount: body.billingAmount
+    });
+
+    /* FR-S4 — recompute inside the same transaction as the rollup, so a
+       customer's visit count and their segment can never disagree. Runs after
+       the visit insert because it reads the visit history that was just
+       written, and after attribution because it overwrites the segment that
+       attribution needed. */
+    await recomputeSegmentForCustomer(client, merchantId, customerId, new Date(visitDate));
+
+    /* Lifecycle enrolment runs last, because the rhythm-based schedule reads
+       the expected_gap_days the line above just refreshed. Scheduling before
+       the recompute would time this visit's nudges off the previous visit's
+       rhythm. */
     const enrolled = await enrollAfterVisit(client, {
       merchantId,
       customerId,
