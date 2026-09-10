@@ -1,6 +1,6 @@
 import type { PoolClient } from "pg";
 import { randomUUID } from "node:crypto";
-import { lifecycleBullJobId } from "@custva/shared";
+import { lifecycleBullJobId, rhythmNudgeOffsetsDays } from "@custva/shared";
 import { getLifecycleDispatchQueue } from "./queue.js";
 
 export const LIFECYCLE_DAYS = ["day_0", "day_3", "day_7", "day_14"] as const;
@@ -65,6 +65,26 @@ export interface EnrollResult {
   cancelledJobIds: string[];
 }
 
+/**
+ * Day 0 acknowledgement, then two nudges pinned to the customer's own gap:
+ * one as they become At-Risk, one before they tip into Dormant. The day_7 and
+ * day_14 templates carry the right wording for those moments already
+ * ("A week since we met", "We miss you"), so the copy is reused rather than
+ * duplicated — only the timing changes.
+ */
+function buildRhythmPlan(
+  visitAt: Date,
+  expectedGapDays: number
+): Array<{ day: LifecycleDay; scheduledAt: Date }> {
+  const [atRiskDays, dormantDays] = rhythmNudgeOffsetsDays(expectedGapDays);
+  const dayMs = 24 * 60 * 60 * 1000;
+  return [
+    { day: "day_0", scheduledAt: new Date(visitAt.getTime() + DAY_OFFSET_MS.day_0) },
+    { day: "day_7", scheduledAt: new Date(visitAt.getTime() + atRiskDays * dayMs) },
+    { day: "day_14", scheduledAt: new Date(visitAt.getTime() + dormantDays * dayMs) }
+  ];
+}
+
 export async function enrollAfterVisit(
   client: PoolClient,
   input: EnrollAfterVisitInput
@@ -96,11 +116,40 @@ export async function enrollAfterVisit(
   const templateByDay = new Map(templates.rows.map((t) => [t.lifecycle_day, t.id]));
   const jobs: LifecycleScheduleJob[] = [];
 
-  for (const day of LIFECYCLE_DAYS) {
+  /* FR-I1 — when to send, for someone whose rhythm we know.
+     ------------------------------------------------------------------
+     A first-time visitor has no rhythm, so the fixed day 0/3/7/14 grid is
+     still the right nurture sequence for them.
+
+     For everyone else the grid actively misfires: a customer who comes
+     monthly is chased on day 3, day 7 and day 14 while perfectly on
+     schedule. Those messages cost money, land as nagging, and are how a
+     sending number collects the blocks and reports that wreck its quality
+     rating. So a returning customer gets the day-0 acknowledgement, and
+     after that nothing until they are actually late by their own standard.
+
+     A regular who comes back on time is cancelled out of both nudges by
+     cancelPendingLifecycleSchedules on their next visit, and receives only
+     the thank-you. That is the intended outcome, not a gap. */
+  const rhythm = await client.query<{ expected_gap_days: string | null }>(
+    `SELECT expected_gap_days FROM customers WHERE id = $1`,
+    [input.customerId]
+  );
+  const expectedGapDays =
+    rhythm.rows[0]?.expected_gap_days == null
+      ? null
+      : Number(rhythm.rows[0].expected_gap_days);
+
+  const useRhythm = tier > 1 && expectedGapDays != null;
+
+  const plan: Array<{ day: LifecycleDay; scheduledAt: Date }> = useRhythm
+    ? buildRhythmPlan(input.visitAt, expectedGapDays!)
+    : LIFECYCLE_DAYS.map((day) => ({ day, scheduledAt: scheduleAt(input.visitAt, day) }));
+
+  for (const { day, scheduledAt } of plan) {
     const templateId = templateByDay.get(day);
     if (!templateId) continue;
 
-    const scheduledAt = scheduleAt(input.visitAt, day);
     const scheduleId = randomUUID();
     const bullJobId = lifecycleBullJobId(scheduleId);
 
