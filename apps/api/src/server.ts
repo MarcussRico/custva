@@ -1,3 +1,10 @@
+/* Must be imported before any router is defined. Express 4 does not catch
+   rejected promises from async handlers, and every route in this codebase is
+   async — customers/routes.ts alone had 8 async handlers and no try/catch. A
+   rejected query became an unhandled rejection: the request hung with no
+   response, and on Node 20+ the process terminates. This patches Express's
+   Layer.handle so the existing error middleware catches them. */
+import "express-async-errors";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
