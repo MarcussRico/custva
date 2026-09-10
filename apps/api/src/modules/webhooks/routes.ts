@@ -70,9 +70,11 @@ webhookRouter.post("/whatsapp", verifyWhatsAppSignature, async (req, res) => {
     const messageResult = await query<{
       id: string;
       merchant_id: string;
-      campaign_id: string;
+      campaign_id: string | null;
+      lifecycle_schedule_id: string | null;
     }>(
-      "SELECT id, merchant_id, campaign_id FROM messages WHERE provider_message_id = $1 LIMIT 1",
+      `SELECT id, merchant_id, campaign_id, lifecycle_schedule_id
+       FROM messages WHERE provider_message_id = $1 LIMIT 1`,
       [status.id]
     );
     if (!messageResult.rowCount) {
@@ -88,23 +90,41 @@ webhookRouter.post("/whatsapp", verifyWhatsAppSignature, async (req, res) => {
        WHERE id = $2`,
       [status.status, message.id]
     );
-    await query(
-      `INSERT INTO message_events (message_id, merchant_id, campaign_id, event_type, provider_payload, event_at)
-       VALUES ($1, $2, $3, $4, $5, TO_TIMESTAMP($6::double precision))`,
+    /* Meta redelivers status webhooks on any non-2xx or timeout — normal
+       traffic, not an error. The unique index on (message_id, event_type) plus
+       DO NOTHING makes the insert idempotent, and `rowCount` then tells us
+       whether this was the first time we saw this event. Every counter below is
+       gated on that, so a redelivery no longer inflates the numbers the
+       merchant dashboard reports — or that commission will be computed from. */
+    const eventInsert = await query(
+      `INSERT INTO message_events (
+         message_id, merchant_id, campaign_id, lifecycle_schedule_id,
+         event_type, provider_payload, event_at
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, TO_TIMESTAMP($7::double precision))
+       ON CONFLICT (message_id, event_type) DO NOTHING`,
       [
         message.id,
         message.merchant_id,
         message.campaign_id,
+        message.lifecycle_schedule_id,
         status.status,
         JSON.stringify(status),
         status.timestamp ? Number(status.timestamp) : Math.floor(Date.now() / 1000)
       ]
     );
+    const isFirstTimeSeen = (eventInsert.rowCount ?? 0) > 0;
+    if (!isFirstTimeSeen) {
+      continue;
+    }
+
     if (status.status === "delivered") {
-      await query(
-        "UPDATE campaigns SET delivered_count = delivered_count + 1, updated_at = NOW() WHERE id = $1",
-        [message.campaign_id]
-      );
+      if (message.campaign_id) {
+        await query(
+          "UPDATE campaigns SET delivered_count = delivered_count + 1, updated_at = NOW() WHERE id = $1",
+          [message.campaign_id]
+        );
+      }
       await query(
         `INSERT INTO daily_merchant_metrics (merchant_id, metric_date, messages_delivered)
          VALUES ($1, CURRENT_DATE, 1)
@@ -122,7 +142,7 @@ webhookRouter.post("/whatsapp", verifyWhatsAppSignature, async (req, res) => {
         [message.merchant_id]
       );
     }
-    if (status.status === "failed") {
+    if (status.status === "failed" && message.campaign_id) {
       await query(
         "UPDATE campaigns SET failed_count = failed_count + 1, updated_at = NOW() WHERE id = $1",
         [message.campaign_id]
