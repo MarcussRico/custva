@@ -57,8 +57,8 @@ Net across tracked files: **1,144 insertions, 2,763 deletions.**
 |---|---|---|
 | `custva-mark.png` | 25 KB | Logomark, yellow field removed |
 | `custva-wordmark.png` | 31 KB | Wordmark, yellow field removed |
-| `msg-brownie.jpg` | 89 KB | Message preview, 736×552 |
-| `msg-coffee.jpg` | 19 KB | Message preview, 325×244 |
+| `msg-brownie.jpg` | 68 KB | Message preview, 736×385 (1.91:1) |
+| `msg-coffee.jpg` | 15 KB | Message preview, 325×170 (1.91:1) |
 
 Both marks are copied into `web-admin/public/` as well.
 
@@ -382,8 +382,9 @@ before anything real runs on these URLs.
   are being served from a public production URL. Rights need checking, or
   replace them with photos from a pilot merchant.
 - **No error monitoring on a production deployment.** See §7.
-- **`msg-coffee.jpg` is 325 px wide** — noticeably softer than the brownie on a
-  retina display. Wants a higher-resolution source.
+- **`msg-coffee.jpg` is 325 px wide, and only 170 tall after the 1.91:1 crop** —
+  noticeably softer than the brownie on a retina display. Wants a
+  higher-resolution source; the portrait original leaves little to crop from.
 - `public/product-dashboard.png`, `custva-large-logo.png` and
   `custva-loopy.png` are now unreferenced (~2.3 MB). Left in place.
 - A real product screenshot, if one is wanted in place of the removed mockup,
