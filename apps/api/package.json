@@ -11,7 +11,7 @@
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "echo \"No lints configured for @custva/api\"",
-    "test": "echo \"No tests yet for @custva/api\""
+    "test": "tsx --test src/**/*.test.ts"
   },
   "dependencies": {
     "@custva/shared": "workspace:*",
@@ -21,6 +21,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
+    "express-async-errors": "^3.1.1",
     "express-rate-limit": "^8.6.0",
     "helmet": "^8.0.0",
     "ioredis": "^5.11.1",

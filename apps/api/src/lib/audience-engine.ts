@@ -7,6 +7,15 @@ export const audienceRulesSchema = z.object({
   maxSpend: z.number().nonnegative().optional(),
   pincode: z.string().length(6).optional(),
   tags: z.array(z.enum(["New", "Repeat", "High-value", "Inactive"])).optional(),
+  /* FR-I1 — the targeting that matters. The legacy `tags` above are computed
+     from global constants (spend > 2000, inactive > 30 days); these are the
+     four behavioural segments from each customer's own rhythm. */
+  segments: z
+    .array(z.enum(["first_time", "loyal", "at_risk", "dormant"]))
+    .optional(),
+  /* "Overdue right now" — past their own expected revisit date, whatever that
+     is for them. This is the missed-rhythm audience. */
+  overdueOnly: z.boolean().optional(),
   minAge: z.number().int().nonnegative().optional(),
   maxAge: z.number().int().nonnegative().optional(),
   birthdayMonth: z.number().int().min(1).max(12).optional(),
@@ -30,7 +39,14 @@ export function buildAudienceQuery(
   manualIncludeIds: string[] = [],
   manualExcludeIds: string[] = []
 ): AudienceQueryResult {
-  const conditions: string[] = ["c.merchant_id = $1", "c.whatsapp_opt_in = TRUE"];
+  /* `scope` is non-negotiable and always ANDed: tenancy and consent. `conditions`
+     holds the audience rules, which a manual include is allowed to bypass.
+     Keeping these apart is the whole point — when they were one list, the
+     `OR c.id = ANY(...)` branch escaped merchant scoping and opt-in together,
+     so a caller could message another merchant's customers and people who had
+     opted out. */
+  const scope: string[] = ["c.merchant_id = $1", "c.whatsapp_opt_in = TRUE"];
+  const conditions: string[] = [];
   const params: unknown[] = [merchantId];
   let idx = 2;
 
@@ -107,31 +123,46 @@ export function buildAudienceQuery(
     );
   }
 
+  /* An explicit exclusion outranks an explicit include, so this is scope too. */
+  if (rules.segments?.length) {
+    conditions.push(`c.segment = ANY($${idx}::text[])`);
+    params.push(rules.segments);
+    idx++;
+  }
+  if (rules.overdueOnly) {
+    conditions.push(`c.expected_revisit_at IS NOT NULL AND c.expected_revisit_at <= NOW()`);
+  }
+
   if (manualExcludeIds.length) {
-    conditions.push(`c.id != ALL($${idx}::uuid[])`);
+    scope.push(`c.id != ALL($${idx}::uuid[])`);
     params.push(manualExcludeIds);
     idx++;
   }
 
-  const ruleMatch = conditions.join(" AND ");
+  /* No rules means "everyone in scope" — preserved from the original behaviour
+     deliberately, so this fix does not silently change who existing campaigns
+     target. Whether that default is *wise* is a separate question. */
+  const ruleMatch = conditions.length ? conditions.join(" AND ") : "TRUE";
 
   if (manualIncludeIds.length) {
     const sql = `
-      SELECT DISTINCT c.id, c.mobile, c.name
+      SELECT DISTINCT c.id, c.mobile, c.name, c.segment
       FROM customers c
-      WHERE (
-        (${ruleMatch})
-        OR c.id = ANY($${idx}::uuid[])
-      )
+      WHERE ${scope.join(" AND ")}
+        AND (
+          (${ruleMatch})
+          OR c.id = ANY($${idx}::uuid[])
+        )
       ORDER BY c.name ASC`;
     params.push(manualIncludeIds);
     return { sql, params };
   }
 
   const sql = `
-    SELECT c.id, c.mobile, c.name
+    SELECT c.id, c.mobile, c.name, c.segment
     FROM customers c
-    WHERE ${ruleMatch}
+    WHERE ${scope.join(" AND ")}
+      AND ${ruleMatch}
     ORDER BY c.name ASC`;
 
   return { sql, params };
@@ -158,6 +189,10 @@ export const customerListFilterSchema = z.object({
   tag: z.enum(["New", "Repeat", "High-value", "Inactive"]).optional(),
   birthdayMonth: z.coerce.number().optional(),
   campaignEngagement: z.enum(["delivered", "read", "none"]).optional(),
+  segments: z
+    .array(z.enum(["first_time", "loyal", "at_risk", "dormant"]))
+    .optional(),
+  overdueOnly: z.coerce.boolean().optional(),
   sortBy: z.enum(["name", "totalSpend", "totalVisits", "lastVisit", "createdAt", "updatedAt"]).default("updatedAt"),
   cursor: z.string().optional()
 });

@@ -3,6 +3,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { sendError, sendSuccess } from "../../lib/api-response.js";
 import { query } from "../../lib/db.js";
+import { assignHoldout, computeLift } from "@custva/shared";
 import { getCampaignDispatchQueue } from "../../lib/queue.js";
 import {
   audienceRulesSchema,
@@ -21,6 +22,23 @@ const campaignSchema = z.object({
 
 const BATCH_SIZE = 100;
 
+/* The audience query scopes every branch to the merchant, so a foreign id can no
+   longer leak a customer. This is the second line: reject the request outright
+   rather than silently returning fewer people than the caller listed, and keep
+   foreign ids from being persisted onto the campaign row in the first place. */
+async function assertCustomersBelongToMerchant(
+  merchantId: string,
+  ids: string[]
+): Promise<string[]> {
+  if (!ids.length) return [];
+  const found = await query<{ id: string }>(
+    `SELECT id FROM customers WHERE merchant_id = $1 AND id = ANY($2::uuid[])`,
+    [merchantId, ids]
+  );
+  const owned = new Set(found.rows.map((r) => r.id));
+  return ids.filter((id) => !owned.has(id));
+}
+
 async function resolveAudience(
   merchantId: string,
   rules: AudienceRules,
@@ -28,17 +46,26 @@ async function resolveAudience(
   manualExcludeIds: string[]
 ) {
   const { sql, params } = buildAudienceQuery(merchantId, rules, manualIncludeIds, manualExcludeIds);
-  const result = await query<{ id: string; mobile: string; name: string }>(sql, params);
+  const result = await query<{
+    id: string;
+    mobile: string;
+    name: string;
+    segment: string | null;
+  }>(sql, params);
   return result.rows;
 }
 
-async function snapshotAudience(campaignId: string, audience: Array<{ id: string; mobile: string }>) {
+async function snapshotAudience(
+  campaignId: string,
+  audience: Array<{ id: string; mobile: string }>,
+  arm: "treatment" | "holdout" = "treatment"
+) {
   for (const customer of audience) {
     await query(
-      `INSERT INTO campaign_audiences (campaign_id, customer_id, mobile)
-       VALUES ($1,$2,$3)
+      `INSERT INTO campaign_audiences (campaign_id, customer_id, mobile, arm)
+       VALUES ($1,$2,$3,$4)
        ON CONFLICT (campaign_id, customer_id) DO NOTHING`,
-      [campaignId, customer.id, customer.mobile]
+      [campaignId, customer.id, customer.mobile, arm]
     );
   }
 }
@@ -79,6 +106,20 @@ campaignsRouter.post("/", async (req, res) => {
   );
   if (!template.rowCount) {
     return sendError(req, res, "VALIDATION_ERROR", "Invalid or unavailable template", 422);
+  }
+
+  const foreign = await assertCustomersBelongToMerchant(merchantId, [
+    ...body.manualIncludeIds,
+    ...body.manualExcludeIds
+  ]);
+  if (foreign.length) {
+    return sendError(
+      req,
+      res,
+      "VALIDATION_ERROR",
+      `${foreign.length} customer id(s) do not belong to this merchant`,
+      422
+    );
   }
 
   const inserted = await query(
@@ -151,6 +192,20 @@ campaignsRouter.put("/:id", async (req, res) => {
   );
   if (!existing.rowCount) {
     return sendError(req, res, "CONFLICT", "Campaign cannot be edited in current status", 409);
+  }
+
+  const foreign = await assertCustomersBelongToMerchant(req.auth!.merchantId, [
+    ...(body.manualIncludeIds ?? []),
+    ...(body.manualExcludeIds ?? [])
+  ]);
+  if (foreign.length) {
+    return sendError(
+      req,
+      res,
+      "VALIDATION_ERROR",
+      `${foreign.length} customer id(s) do not belong to this merchant`,
+      422
+    );
   }
 
   await query(
@@ -261,8 +316,10 @@ campaignsRouter.post("/:id/send", async (req, res) => {
     manual_include_ids: string[];
     manual_exclude_ids: string[];
     status: string;
+    include_loyal_override: boolean;
   }>(
-    `SELECT template_id, audience_rules, manual_include_ids, manual_exclude_ids, status
+    `SELECT template_id, audience_rules, manual_include_ids, manual_exclude_ids,
+            status, include_loyal_override
      FROM campaigns WHERE id = $1 AND merchant_id = $2`,
     [req.params.id, merchantId]
   );
@@ -275,38 +332,201 @@ campaignsRouter.post("/:id/send", async (req, res) => {
     return sendError(req, res, "CONFLICT", "Campaign already sent or in progress", 409);
   }
 
-  const template = await query<{ name: string }>(
-    `SELECT name FROM templates WHERE id = $1 AND merchant_id = $2`,
+  const template = await query<{
+    name: string;
+    is_discount_offer: boolean;
+    meta_template_name: string | null;
+    meta_status: string | null;
+    meta_rejected_reason: string | null;
+  }>(
+    `SELECT name, is_discount_offer, meta_template_name, meta_status, meta_rejected_reason
+       FROM templates WHERE id = $1 AND merchant_id = $2`,
     [row.template_id, merchantId]
   );
   if (!template.rowCount) {
     return sendError(req, res, "VALIDATION_ERROR", "Template not found", 422);
   }
 
-  const audience = await resolveAudience(
+  /* M3 — the gate that did not exist. `approval_status` is Custva's own review
+     flag and has never meant anything to Meta; a template that is not APPROVED
+     on the WhatsApp Business Account will be refused at send time, one failed
+     message at a time, after the campaign has already started. Refusing here
+     turns that into a single clear error before anything is queued. */
+  const meta = template.rows[0];
+  if (meta.meta_status !== "APPROVED" || !meta.meta_template_name) {
+    const detail =
+      meta.meta_status === "REJECTED" && meta.meta_rejected_reason
+        ? `Meta rejected it: ${meta.meta_rejected_reason}`
+        : meta.meta_status
+          ? `Its status at Meta is ${meta.meta_status}.`
+          : "It has never been submitted to Meta.";
+    return sendError(
+      req,
+      res,
+      "VALIDATION_ERROR",
+      `This template cannot be sent yet. ${detail}`,
+      422
+    );
+  }
+
+  const resolved = await resolveAudience(
     merchantId,
     row.audience_rules ?? {},
     row.manual_include_ids ?? [],
     row.manual_exclude_ids ?? []
   );
 
+  /* FR-I2 / TR-5 — enforced here, on the send path, not in the UI. A merchant
+     loses margin every time a discount reaches someone who was coming back
+     anyway, and BR-2 makes protecting that margin a product promise rather
+     than a suggestion. The override exists (FR-I2 allows it) but has to be set
+     explicitly on the campaign. */
+  const shielded =
+    template.rows[0].is_discount_offer && !row.include_loyal_override
+      ? resolved.filter((c) => c.segment !== "loyal")
+      : resolved;
+  const loyalWithheld = resolved.length - shielded.length;
+
+  const audience = shielded;
+
   if (audience.length === 0) {
-    return sendError(req, res, "VALIDATION_ERROR", "No customers match audience", 422);
+    return sendError(
+      req,
+      res,
+      "VALIDATION_ERROR",
+      loyalWithheld > 0
+        ? `No customers match audience. ${loyalWithheld} loyal customer(s) were withheld from this discount offer — set includeLoyalOverride to reach them anyway.`
+        : "No customers match audience",
+      422
+    );
   }
 
+  /* Phase E — split the audience before anything is queued.
+     Last-touch attribution can say "they got a message and came back". Only a
+     held-out group can answer the merchant's actual objection, "they would have
+     come back anyway", because the held-out group *is* those people.
+
+     Assignment is deterministic on (campaignId, customerId): a retried send
+     must never reshuffle the arms, or someone gets messaged twice and the
+     experiment is destroyed. */
+  const merchantSettings = await query<{ holdout_percent: string }>(
+    `SELECT holdout_percent FROM merchants WHERE id = $1`,
+    [merchantId]
+  );
+  const split = assignHoldout(audience, {
+    campaignId: req.params.id,
+    percent: Number(merchantSettings.rows[0]?.holdout_percent ?? 0)
+  });
+
   await query(`DELETE FROM campaign_audiences WHERE campaign_id = $1`, [req.params.id]);
-  await snapshotAudience(req.params.id, audience);
-  await enqueueCampaignSend(req.params.id, merchantId, template.rows[0].name, audience);
+  await snapshotAudience(req.params.id, split.treatment, "treatment");
+  await snapshotAudience(req.params.id, split.holdout, "holdout");
+
+  /* Only the treatment arm is queued. The holdout is recorded and left alone —
+     that is the entire point, and the cost of the measurement. */
+  await enqueueCampaignSend(
+    req.params.id,
+    merchantId,
+    meta.meta_template_name,
+    split.treatment
+  );
 
   await query(
-    `UPDATE campaigns SET status = 'sending', target_count = $1, updated_at = NOW()
-     WHERE id = $2 AND merchant_id = $3`,
-    [audience.length, req.params.id, merchantId]
+    `UPDATE campaigns SET status = 'sending', target_count = $1,
+            holdout_percent_used = $2, holdout_count = $3, treatment_count = $4,
+            updated_at = NOW()
+     WHERE id = $5 AND merchant_id = $6`,
+    [
+      split.treatment.length,
+      split.holdout.length ? split.percentUsed : null,
+      split.holdout.length,
+      split.treatment.length,
+      req.params.id,
+      merchantId
+    ]
   );
 
   return sendSuccess(req, res, {
     campaignId: req.params.id,
     status: "sending",
-    queuedRecipients: audience.length
+    queuedRecipients: split.treatment.length,
+    loyalWithheld,
+    holdout: {
+      count: split.holdout.length,
+      percentUsed: split.holdout.length ? split.percentUsed : 0,
+      /* Present when no holdout was assigned, so the merchant knows why they
+         will not get a lift number for this campaign. */
+      skippedReason: split.skippedReason ?? null
+    }
+  });
+});
+
+/**
+ * The lift a campaign actually caused.
+ *
+ * This is the number that answers "they would have come back anyway". It is
+ * deliberately conservative: `computeLift` refuses to state a figure when the
+ * sample is too small or the difference is inside normal variation, because a
+ * confident wrong number here is what an invoice gets argued from.
+ */
+campaignsRouter.get("/:id/lift", async (req, res) => {
+  const merchantId = req.auth!.merchantId;
+  const windowDays = Math.min(60, Math.max(1, Number(req.query.windowDays ?? 14)));
+
+  const campaign = await query<{
+    id: string;
+    campaign_name: string;
+    holdout_count: number;
+    treatment_count: number;
+    holdout_percent_used: string | null;
+    sent_at: Date | null;
+  }>(
+    `SELECT id, campaign_name, holdout_count, treatment_count, holdout_percent_used,
+            updated_at AS sent_at
+       FROM campaigns WHERE id = $1 AND merchant_id = $2`,
+    [req.params.id, merchantId]
+  );
+  if (!campaign.rowCount) {
+    return sendError(req, res, "RESOURCE_NOT_FOUND", "Campaign not found", 404);
+  }
+  const c = campaign.rows[0];
+
+  /* A "return" is a visit after the campaign went out, inside the window.
+     Counted per arm from the audience snapshot, so the comparison is between
+     the two groups as they were actually assigned. */
+  const counts = await query<{ arm: string; size: string; returned: string }>(
+    `SELECT ca.arm,
+            COUNT(*)::text AS size,
+            COUNT(*) FILTER (
+              WHERE EXISTS (
+                SELECT 1 FROM customer_visits v
+                 WHERE v.customer_id = ca.customer_id
+                   AND v.visit_at > $2
+                   AND v.visit_at <= $2 + ($3 * INTERVAL '1 day')
+              )
+            )::text AS returned
+       FROM campaign_audiences ca
+      WHERE ca.campaign_id = $1
+      GROUP BY ca.arm`,
+    [req.params.id, c.sent_at, windowDays]
+  );
+
+  const byArm = Object.fromEntries(
+    counts.rows.map((r) => [r.arm, { size: Number(r.size), returned: Number(r.returned) }])
+  ) as Record<string, { size: number; returned: number } | undefined>;
+
+  const lift = computeLift({
+    treatmentSize: byArm.treatment?.size ?? 0,
+    treatmentReturned: byArm.treatment?.returned ?? 0,
+    holdoutSize: byArm.holdout?.size ?? 0,
+    holdoutReturned: byArm.holdout?.returned ?? 0
+  });
+
+  return sendSuccess(req, res, {
+    campaignId: c.id,
+    campaignName: c.campaign_name,
+    windowDays,
+    holdoutPercentUsed: c.holdout_percent_used ? Number(c.holdout_percent_used) : 0,
+    ...lift
   });
 });
