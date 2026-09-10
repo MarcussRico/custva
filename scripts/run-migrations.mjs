@@ -29,14 +29,14 @@ await client.query(`
   )
 `);
 
-const applied = await client.query<{ filename: string }>(
+const applied = await client.query(
   `SELECT filename FROM schema_migrations`
 );
 const appliedSet = new Set(applied.rows.map((r) => r.filename));
 
 // Bootstrap existing databases that already have schema but no tracking rows
 if (appliedSet.size === 0) {
-  const tables = await client.query<{ exists: boolean }>(
+  const tables = await client.query(
     `SELECT EXISTS (
        SELECT 1 FROM information_schema.tables
        WHERE table_schema = 'public' AND table_name = 'merchants'
