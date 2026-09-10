@@ -1,0 +1,661 @@
+/* ════════════════════════════════════════════════════════════════════
+   CUSTVA — LANDING
+   Scoped under .landing so none of this reaches the merchant dashboard,
+   which still styles against the older tokens in globals.css.
+
+   Palette note: the brand is navy + a fluorescent yellow (#ffd400). That
+   yellow is unusable at area on a light page, so it is held at #e3a82b —
+   still recognisably the brand, soft enough to sit on paper. The sage is
+   a quiet second voice that nods at the messaging channel without being
+   WhatsApp green.
+════════════════════════════════════════════════════════════════════ */
+
+.landing {
+  --rule: rgba(1, 18, 68, 0.1);
+  --rule-soft: rgba(1, 18, 68, 0.06);
+
+  position: relative;
+  min-height: 100vh;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.6;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Paper grain. A flat fill reads as generated; this is barely visible but
+   stops the large light areas from going dead. */
+.landing::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.055'/%3E%3C/svg%3E");
+}
+
+.landing > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Type ─────────────────────────────────────────────────────────── */
+.landing h1,
+.landing h2,
+.landing h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.028em;
+  line-height: 1.06;
+  color: var(--color-ink);
+}
+
+.display-xl { font-size: clamp(2.6rem, 6.2vw, 4.6rem); }
+.display-lg { font-size: clamp(2rem, 4vw, 3rem); }
+.display-md { font-size: clamp(1.35rem, 2vw, 1.6rem); line-height: 1.2; }
+
+.lede {
+  font-size: clamp(1.05rem, 1.5vw, 1.22rem);
+  line-height: 1.62;
+  color: var(--color-ink-soft);
+  max-width: 46ch;
+}
+
+/* Mono is reserved for genuine instrument labels — day offsets, tier names,
+   counts. Never navigation, never buttons. */
+.instrument {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-ink-soft);
+}
+
+/* ── Shell ────────────────────────────────────────────────────────── */
+.shell {
+  width: 100%;
+  max-width: 1160px;
+  margin-inline: auto;
+  padding-inline: clamp(1.25rem, 4vw, 2.5rem);
+}
+
+.band { padding-block: clamp(4.5rem, 9vw, 8rem); }
+.band + .band { padding-top: 0; }
+.band-line { border-top: 1px solid var(--rule-soft); }
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1.4rem;
+}
+.eyebrow::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--rule);
+  max-width: 120px;
+}
+
+/* ── Navigation ───────────────────────────────────────────────────── */
+/* Sentence case in the body grotesque, generously spaced. */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  padding-block: 1.1rem;
+  background: color-mix(in srgb, var(--color-paper) 86%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.3s ease;
+}
+.nav[data-stuck="true"] { border-bottom-color: var(--rule-soft); }
+
+.nav-links {
+  display: none;
+  gap: 2.1rem;
+}
+@media (min-width: 900px) { .nav-links { display: flex; } }
+
+.nav-link {
+  font-size: 0.95rem;
+  color: var(--color-ink-soft);
+  text-decoration: none;
+  transition: color 0.18s ease;
+}
+.nav-link:hover { color: var(--color-ink); }
+
+/* ── Buttons ──────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-size: 0.97rem;
+  font-weight: 500;
+  padding: 0.78rem 1.5rem;
+  text-decoration: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform 0.18s ease, background-color 0.18s ease,
+              border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.btn-primary {
+  background: var(--color-yellow);
+  color: var(--color-ink);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(1, 18, 68, 0.14);
+}
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(1, 18, 68, 0.18);
+}
+.btn-ghost {
+  border-color: var(--rule);
+  color: var(--color-ink);
+  background: transparent;
+}
+.btn-ghost:hover { border-color: var(--color-ink); }
+
+.landing a:focus-visible,
+.landing button:focus-visible {
+  outline: 2px solid var(--color-yellow-deep);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* ── The loop (signature) ─────────────────────────────────────────── */
+.loop-wrap { width: 100%; margin-top: clamp(2.5rem, 5vw, 4rem); }
+.loop-svg { width: 100%; height: auto; overflow: visible; }
+
+.loop-origin, .loop-node, [data-return] { opacity: 0; }
+
+.loop-origin-label {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  fill: var(--color-ink);
+}
+.loop-node-day {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  fill: var(--color-yellow-deep);
+}
+.loop-node-label {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  fill: var(--color-ink);
+}
+.loop-return-label {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-style: italic;
+  fill: var(--color-ink-soft);
+}
+
+/* Mobile stack */
+.loop-stack { list-style: none; margin: 0; padding: 0; }
+.loop-stack li {
+  position: relative;
+  padding: 0.85rem 0 0.85rem 1.9rem;
+  border-left: 1px solid var(--rule);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.loop-stack li:last-child { border-left-color: transparent; }
+.loop-stack-dot,
+.loop-stack-tick {
+  position: absolute;
+  left: -6px;
+  top: 1.15rem;
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  background: var(--color-shell);
+  border: 2px solid var(--color-ink);
+}
+.loop-stack-dot {
+  background: var(--color-yellow);
+  border-color: var(--color-yellow);
+  width: 13px; height: 13px; left: -7px;
+}
+.loop-stack-day { font-weight: 600; font-size: 0.95rem; }
+.loop-stack-label { font-size: 0.9rem; color: var(--color-ink); }
+.loop-stack-note { font-size: 0.86rem; color: var(--color-ink-soft); }
+
+/* ── Cards / grids ───────────────────────────────────────────────── */
+.card {
+  background: var(--color-shell);
+  border: 1px solid var(--rule-soft);
+  border-radius: 16px;
+  padding: 1.6rem;
+}
+
+.grid-3 {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 720px) { .grid-3 { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1000px) { .grid-3 { grid-template-columns: repeat(3, 1fr); } }
+
+.feature-icon {
+  width: 34px;
+  height: 34px;
+  color: var(--color-yellow-deep);
+  margin-bottom: 1rem;
+}
+
+/* ── Cadence: one tier at a time ─────────────────────────────────────
+   Sixteen cells at once read as a spreadsheet. Four at a time read as a
+   fortnight. The tabs choose which set of four. */
+.cadence { width: 100%; }
+
+.tier-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  padding: 0.35rem;
+  background: var(--color-paper-deep);
+  border-radius: 999px;
+  width: fit-content;
+  max-width: 100%;
+}
+.tier-tab {
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: var(--color-ink-soft);
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.5rem 1.05rem;
+  cursor: pointer;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+.tier-tab:hover { color: var(--color-ink); }
+.tier-tab--on {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+
+.tier-who {
+  margin-top: 1.1rem;
+  font-size: 1rem;
+  color: var(--color-ink-soft);
+  max-width: 52ch;
+}
+
+.step-row {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+  margin-top: 1.75rem;
+}
+@media (min-width: 680px)  { .step-row { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1020px) { .step-row { grid-template-columns: repeat(4, 1fr); } }
+
+.step-card {
+  position: relative;
+  background: var(--color-shell);
+  border: 1px solid var(--rule-soft);
+  border-radius: 14px;
+  padding: 1.15rem 1.1rem 1.25rem;
+}
+/* a short rule at the top of each card, reading left to right like a track */
+.step-rail {
+  position: absolute;
+  top: 0;
+  left: 1.1rem;
+  right: 1.1rem;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: var(--color-yellow);
+}
+.step-card:nth-child(2) .step-rail { background: color-mix(in srgb, var(--color-yellow) 72%, var(--color-coral)); }
+.step-card:nth-child(3) .step-rail { background: color-mix(in srgb, var(--color-yellow) 40%, var(--color-coral)); }
+.step-card:nth-child(4) .step-rail { background: var(--color-coral); }
+
+.step-day { margin-bottom: 0.3rem; }
+.step-when {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-ink);
+}
+.step-head {
+  margin-top: 0.85rem;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: var(--color-ink);
+}
+.step-note {
+  margin-top: 0.3rem;
+  font-size: 0.9rem;
+  color: var(--color-ink-soft);
+}
+
+.cadence-foot {
+  margin-top: 1.5rem;
+  font-size: 0.92rem;
+  color: var(--color-ink-soft);
+  max-width: 62ch;
+}
+
+/* ── WhatsApp template anatomy ───────────────────────────────────── */
+.wa-frame {
+  background: var(--color-paper-deep);
+  border: 1px solid var(--rule-soft);
+  border-radius: 18px;
+  padding: 1.4rem;
+  max-width: 400px;
+}
+.wa-bubble {
+  background: var(--color-shell);
+  border-radius: 12px 12px 12px 4px;
+  padding: 0.85rem 0.95rem;
+  box-shadow: 0 1px 2px rgba(1, 18, 68, 0.09);
+  font-size: 0.92rem;
+}
+.wa-header {
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+.wa-footer {
+  font-size: 0.78rem;
+  color: var(--color-ink-soft);
+  margin-top: 0.5rem;
+}
+.wa-buttons {
+  margin-top: 0.7rem;
+  border-top: 1px solid var(--rule-soft);
+  padding-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.wa-button {
+  text-align: center;
+  color: var(--color-green);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+.wa-annot {
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+  padding: 0.45rem 0;
+  border-bottom: 1px dashed var(--rule-soft);
+  font-size: 0.87rem;
+  color: var(--color-ink-soft);
+}
+.wa-annot:last-child { border-bottom: 0; }
+.wa-annot span:first-child {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-yellow-deep);
+  min-width: 74px;
+}
+
+/* ── Status ledger (what is live vs not) ─────────────────────────── */
+.ledger { display: flex; flex-direction: column; gap: 0; }
+.ledger-row {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.ledger-row:last-child { border-bottom: 0; }
+.ledger-state {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  min-width: 92px;
+  flex-shrink: 0;
+}
+.state-live { color: var(--color-green); }
+.state-next { color: var(--color-yellow-deep); }
+
+/* ── FAQ ─────────────────────────────────────────────────────────── */
+.faq-item { border-bottom: 1px solid var(--rule-soft); }
+.faq-q {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 1.25rem 0;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+.faq-mark {
+  flex-shrink: 0;
+  width: 22px; height: 22px;
+  position: relative;
+}
+.faq-mark::before,
+.faq-mark::after {
+  content: "";
+  position: absolute;
+  background: var(--color-ink-soft);
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+.faq-mark::before { top: 10px; left: 3px; width: 16px; height: 1.5px; }
+.faq-mark::after  { left: 10px; top: 3px; height: 16px; width: 1.5px; }
+.faq-q[aria-expanded="true"] .faq-mark::after { transform: rotate(90deg); opacity: 0; }
+
+.faq-a {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.32s ease;
+}
+.faq-a[data-open="true"] { max-height: 340px; }
+.faq-a p {
+  padding-bottom: 1.3rem;
+  color: var(--color-ink-soft);
+  max-width: 64ch;
+  font-size: 0.96rem;
+}
+
+/* ── Footer ──────────────────────────────────────────────────────── */
+.footer {
+  border-top: 1px solid var(--rule-soft);
+  padding-block: 3.5rem 2.5rem;
+}
+.footer-link {
+  display: block;
+  font-size: 0.92rem;
+  color: var(--color-ink-soft);
+  text-decoration: none;
+  padding: 0.28rem 0;
+}
+.footer-link:hover { color: var(--color-ink); }
+
+/* ── Reveal initial states ───────────────────────────────────────── */
+[data-reveal], [data-cell] { opacity: 0; }
+[data-hero-line], [data-hero-sub], [data-hero-cta] { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal], [data-cell], [data-hero-line], [data-hero-sub],
+  [data-hero-cta], .loop-origin, .loop-node, [data-return] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .landing * { animation: none !important; transition: none !important; }
+}
+
+/* Hand-drawn underline under a phrase in the hero.
+   This must be inline-block: on a plain inline element the absolutely
+   positioned rule resolves against the inline box and lands on the
+   paragraph below. em units keep it locked to the type as it scales. */
+.swash {
+  position: relative;
+  display: inline-block;
+  white-space: nowrap;
+}
+.swash::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: -0.06em;
+  right: -0.06em;
+  bottom: 0.1em;
+  height: 0.36em;
+  background: var(--color-yellow);
+  border-radius: 3px;
+  transform: rotate(-0.7deg);
+}
+
+/* An SVG transform scales about the user-space origin, not the shape's own
+   centre — without this the pulse ring drifts away from the visit node. */
+.loop-origin-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* ── New layout blocks ───────────────────────────────────────────── */
+.grid-2 {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 820px) { .grid-2 { grid-template-columns: repeat(2, 1fr); } }
+
+.loop-detail {
+  display: grid;
+  gap: 3rem;
+  align-items: start;
+}
+@media (min-width: 980px) {
+  .loop-detail { grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: 4rem; }
+}
+
+.cta-panel {
+  display: grid;
+  gap: 2.5rem;
+  align-items: end;
+  background: var(--color-paper-deep);
+  border-radius: 22px;
+  padding: clamp(1.75rem, 4vw, 3rem);
+}
+@media (min-width: 900px) { .cta-panel { grid-template-columns: 1fr auto; } }
+
+/* ── Tilt: floating boards under pressure ────────────────────────────
+   The edge nearest the cursor recedes, as though it were being pressed,
+   rather than tipping toward the pointer. A sheen tracks the cursor so
+   the surface reads as a physical panel catching light.
+
+   --rx/--ry/--lift are written by the pointer handler in motion.ts;
+   the transition does the smoothing, and is shortened while the pointer
+   is on the card so it tracks tightly and springs back slowly on exit. */
+.tilt {
+  position: relative;
+  transform:
+    perspective(950px)
+    rotateX(var(--rx, 0deg))
+    rotateY(var(--ry, 0deg))
+    translate3d(0, var(--lift, 0px), 0);
+  transition:
+    transform 460ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 460ms ease,
+    --sheen 300ms ease;
+  will-change: transform;
+}
+.tilt[data-hot="true"] {
+  transition-duration: 90ms, 200ms;
+  box-shadow:
+    0 18px 34px -18px rgba(1, 18, 68, 0.32),
+    0 2px 6px rgba(1, 18, 68, 0.06);
+}
+
+/* Cursor-tracked sheen.
+   This lives in the element's own background-image, not an overlay: a
+   pseudo-element on top lightens the body copy along with the surface,
+   whatever blend mode it uses. Behind the content it cannot. Warm yellow
+   rather than white, so it reads as the brand catching light. */
+@property --sheen {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: rgba(253, 211, 4, 0);
+}
+.tilt {
+  background-image: radial-gradient(
+    circle at var(--mx, 50%) var(--my, 50%),
+    var(--sheen),
+    rgba(253, 211, 4, 0) 55%
+  );
+  background-repeat: no-repeat;
+}
+.tilt[data-hot="true"] { --sheen: rgba(253, 211, 4, 0.3); }
+
+/* the yellow marker block sits behind the word, so the text needs a layer */
+.swash { isolation: isolate; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tilt { transform: none !important; transition: none !important; }
+  .tilt[data-hot="true"] { --sheen: rgba(253, 211, 4, 0); }
+}
+
+/* Coarse pointers get no tilt — there is no hover to track. */
+@media (hover: none) {
+  .tilt { transform: none; }
+}
+
+/* ── Message previews with an image header ───────────────────────────
+   WhatsApp puts the media at the top of the bubble, above the header
+   line, so the preview does the same. */
+.preview-row {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+@media (min-width: 760px) {
+  .preview-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .preview-row > .instrument { grid-column: 1 / -1; }
+}
+@media (min-width: 1080px) {
+  .preview-row { grid-template-columns: repeat(2, minmax(0, 360px)) 1fr; }
+  .preview-row > .instrument { grid-column: auto; align-self: end; padding-bottom: 0.5rem; }
+}
+.preview-row .wa-frame { max-width: none; }
+.preview-row .instrument { line-height: 1.6; }
+
+.wa-media {
+  margin: -0.85rem -0.95rem 0.7rem;
+  border-radius: 12px 12px 4px 4px;
+  overflow: hidden;
+  line-height: 0;
+}
+.wa-media-art {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+
