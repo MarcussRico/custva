@@ -1,0 +1,306 @@
+/* ════════════════════════════════════════════════════════════════════
+   CUSTVA — MERCHANT LOGIN
+
+   Built from the same parts as the landing page: paper ground, the same
+   grain, Gabarito over Instrument Sans, DM Mono kept for instrument
+   labels only, and the yellow-on-navy button. The previous version was a
+   glass card floating on a dark gradient with two blurred glow blobs —
+   a different product entirely, and a stack of defaults besides.
+════════════════════════════════════════════════════════════════════ */
+
+.auth {
+  --rule: rgba(1, 18, 68, 0.1);
+  --rule-soft: rgba(1, 18, 68, 0.07);
+
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.75rem;
+  padding: 2.5rem 1.25rem;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* same grain as the landing, so the two grounds match exactly */
+.auth::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.055'/%3E%3C/svg%3E");
+}
+.auth > * { position: relative; z-index: 1; }
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 430px;
+  background: var(--color-shell);
+  border: 1px solid var(--rule-soft);
+  border-radius: 18px;
+  padding: clamp(1.75rem, 5vw, 2.25rem);
+}
+
+/* Step marker. The old version used two decorative dots joined by a line;
+   this says which step you are on and how many there are, in the same mono
+   the landing uses for day offsets. */
+.auth-step {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-yellow-deep);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.auth-step::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--rule);
+}
+
+.auth-heading {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.9rem;
+  letter-spacing: -0.028em;
+  line-height: 1.1;
+  margin-top: 1rem;
+}
+.auth-sub {
+  margin-top: 0.6rem;
+  color: var(--color-ink-soft);
+  font-size: 0.96rem;
+  max-width: 40ch;
+}
+.auth-sub strong {
+  font-weight: 500;
+  color: var(--color-ink);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  margin-top: 1.75rem;
+}
+
+.auth-label {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 500;
+  margin-bottom: 0.4rem;
+}
+
+.auth-input {
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: 0.98rem;
+  color: var(--color-ink);
+  background: var(--color-paper);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 0.72rem 0.85rem;
+  transition: border-color 0.16s ease, background-color 0.16s ease;
+}
+.auth-input::placeholder { color: rgba(1, 18, 68, 0.35); }
+.auth-input:focus {
+  outline: none;
+  background: var(--color-shell);
+  border-color: var(--color-ink);
+}
+.auth-input--with-icon { padding-right: 2.75rem; }
+
+.auth-input-wrap { position: relative; }
+.auth-input-icon-btn {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  padding: 0.35rem;
+  border: 0;
+  background: none;
+  color: var(--color-ink-soft);
+  cursor: pointer;
+  border-radius: 6px;
+}
+.auth-input-icon-btn:hover { color: var(--color-ink); }
+
+.auth-btn {
+  width: 100%;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: var(--font-sans);
+  font-size: 0.97rem;
+  font-weight: 600;
+  color: var(--color-ink);
+  background: var(--color-yellow);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+}
+.auth-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(1, 18, 68, 0.16);
+}
+/* A faded yellow button reads as broken rather than unavailable. */
+.auth-btn:disabled {
+  background: var(--color-paper-deep);
+  color: var(--color-ink-soft);
+  cursor: not-allowed;
+}
+
+.auth-note {
+  margin-top: 1.25rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--rule-soft);
+  font-size: 0.86rem;
+  color: var(--color-ink-soft);
+}
+
+/* Messages. Errors state what happened; they do not apologise. */
+.auth-msg {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  border-radius: 10px;
+  padding: 0.65rem 0.8rem;
+}
+.auth-msg svg { flex-shrink: 0; margin-top: 0.15rem; }
+.auth-msg--error {
+  color: var(--color-coral-deep);
+  background: rgba(255, 92, 58, 0.09);
+}
+.auth-msg--ok {
+  color: var(--color-green);
+  background: rgba(11, 125, 77, 0.09);
+}
+
+/* ── One-time code ───────────────────────────────────────────────────
+   The boxes borrow the cadence-cell treatment from the landing, and the
+   digits are set in the mono face — a genuine instrument reading. */
+.otp-boxes {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.5rem;
+}
+.otp-box {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  color: var(--color-ink);
+  background: var(--color-paper);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  transition: border-color 0.16s ease, background-color 0.16s ease;
+}
+.otp-box:focus {
+  outline: none;
+  border-color: var(--color-ink);
+  background: var(--color-shell);
+}
+.otp-box--filled {
+  background: var(--color-shell);
+  border-color: var(--color-yellow);
+}
+
+.otp-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-ink-soft);
+}
+.otp-meta--urgent { color: var(--color-coral-deep); }
+
+.auth-textbtn {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-family: var(--font-sans);
+  font-size: 0.88rem;
+  color: var(--color-ink);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--rule);
+}
+.auth-textbtn:hover { text-decoration-color: var(--color-ink); }
+.auth-textbtn:disabled {
+  color: var(--color-ink-soft);
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+.auth-below {
+  font-size: 0.9rem;
+  color: var(--color-ink-soft);
+}
+.auth-below a {
+  color: var(--color-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--rule);
+}
+.auth-below a:hover { text-decoration-color: var(--color-ink); }
+
+.auth a:focus-visible,
+.auth button:focus-visible {
+  outline: 2px solid var(--color-yellow-deep);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* Fields already show focus through the border; an outline on top of that
+   stacks two rings, which the autofocused email field made obvious. */
+.auth input:focus-visible {
+  outline: none;
+  border-color: var(--color-ink);
+  box-shadow: 0 0 0 3px rgba(253, 211, 4, 0.4);
+}
+
+.auth-spinner {
+  width: 17px;
+  height: 17px;
+  border: 2px solid rgba(1, 18, 68, 0.25);
+  border-top-color: var(--color-ink);
+  border-radius: 50%;
+  animation: auth-spin 0.7s linear infinite;
+}
+@keyframes auth-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-spinner { animation-duration: 2s; }
+  .auth-btn { transition: none; }
+}
+
+@media (max-width: 420px) {
+  .otp-boxes { gap: 0.35rem; }
+  .otp-box { font-size: 1.05rem; }
+}

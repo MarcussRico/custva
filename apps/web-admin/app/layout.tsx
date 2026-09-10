@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Poppins } from "next/font/google";
+import { Poppins, Gabarito, Instrument_Sans, DM_Mono } from "next/font/google";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -7,6 +7,13 @@ const poppins = Poppins({
   weight: ["400", "500", "600", "700"],
   variable: "--font-poppins"
 });
+
+/* The login page uses the same three faces as the merchant site so the two
+   do not look like different products. Poppins stays for the admin dashboard,
+   which styles against --font-poppins. */
+const gabarito = Gabarito({ subsets: ["latin"], weight: ["400","500","600","700"], variable: "--font-gabarito" });
+const instrument = Instrument_Sans({ subsets: ["latin"], weight: ["400","500","600"], variable: "--font-instrument" });
+const dmMono = DM_Mono({ subsets: ["latin"], weight: ["400","500"], variable: "--font-dm-mono" });
 
 export const metadata: Metadata = {
   title: "Custva Admin Dashboard",
@@ -19,8 +26,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={poppins.variable}>{children}</body>
+    <html
+      lang="en"
+      className={`${poppins.variable} ${gabarito.variable} ${instrument.variable} ${dmMono.variable}`}
+    >
+      <body>{children}</body>
     </html>
   );
 }

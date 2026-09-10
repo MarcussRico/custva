@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Wordmark } from "../../components/landing/brand";
+import "../auth.css";
 
 type Step = "credentials" | "otp";
 
@@ -80,7 +82,7 @@ export default function MerchantLoginPage() {
       };
 
       if (!res.ok || !data.success) {
-        setError(data.message ?? "Invalid email or password. Please try again.");
+        setError(data.message ?? "That email and password do not match an account.");
         return;
       }
 
@@ -91,7 +93,7 @@ export default function MerchantLoginPage() {
       // Focus first OTP box after render
       setTimeout(() => otpRefs.current[0]?.focus(), 50);
     } catch {
-      setError("Something went wrong. Please check your connection and try again.");
+      setError("Could not reach the server. Check your connection and try again.");
     } finally {
       setLoading(false);
     }
@@ -143,11 +145,11 @@ export default function MerchantLoginPage() {
     e.preventDefault();
     const otp = otpDigits.join("");
     if (otp.length < OTP_LENGTH) {
-      setError("Please enter all 6 digits of your code.");
+      setError("Enter all six digits.");
       return;
     }
     if (secondsLeft === 0) {
-      setError("Your code has expired. Please log in again.");
+      setError("That code has expired. Log in again to get a new one.");
       return;
     }
 
@@ -164,7 +166,7 @@ export default function MerchantLoginPage() {
       const data = (await res.json()) as { success: boolean; message?: string };
 
       if (!res.ok || !data.success) {
-        setError(data.message ?? "Incorrect code. Please try again.");
+        setError(data.message ?? "That code is not right.");
         setOtpDigits(Array(OTP_LENGTH).fill(""));
         setTimeout(() => otpRefs.current[0]?.focus(), 50);
 
@@ -173,7 +175,7 @@ export default function MerchantLoginPage() {
           if (timerRef.current) clearInterval(timerRef.current);
           setTimeout(() => {
             setStep("credentials");
-            setError("Too many incorrect attempts. Please log in again.");
+            setError("Too many incorrect attempts. Start again.");
           }, 2000);
         }
         return;
@@ -181,11 +183,11 @@ export default function MerchantLoginPage() {
 
       // Success
       if (timerRef.current) clearInterval(timerRef.current);
-      setSuccessMsg("Verified! Taking you to your dashboard...");
+      setSuccessMsg("Verified — opening your dashboard.");
       router.push("/dashboard");
       router.refresh();
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError("Could not reach the server. Try again.");
     } finally {
       setLoading(false);
     }
@@ -206,7 +208,7 @@ export default function MerchantLoginPage() {
       });
       const data = (await res.json()) as { success: boolean; message?: string };
       if (!res.ok || !data.success) {
-        setError(data.message ?? "Failed to resend code.");
+        setError(data.message ?? "Could not send a new code.");
         return;
       }
       setOtpDigits(Array(OTP_LENGTH).fill(""));
@@ -220,7 +222,7 @@ export default function MerchantLoginPage() {
       }, 1000);
       setTimeout(() => otpRefs.current[0]?.focus(), 50);
     } catch {
-      setError("Failed to resend code.");
+      setError("Could not send a new code.");
     } finally {
       setLoading(false);
     }
@@ -229,38 +231,35 @@ export default function MerchantLoginPage() {
   const otpFilled = otpDigits.every((d) => d !== "");
 
   // ── Render ────────────────────────────────────────────────────────────────
+  const ErrorMsg = error ? (
+    <div className="auth-msg auth-msg--error" role="alert">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           strokeWidth="1.8" strokeLinecap="round">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7.5v5M12 16.2v.2" />
+      </svg>
+      {error}
+    </div>
+  ) : null;
+
   return (
-    <div className="auth-shell">
-      {/* Background decorations */}
-      <div className="auth-bg-glow auth-bg-glow--left" />
-      <div className="auth-bg-glow auth-bg-glow--right" />
+    <div className="auth">
+      <Link href="/" className="auth-brand" aria-label="Custva home">
+        <Wordmark width={116} />
+      </Link>
 
       <div className="auth-card">
-        {/* Logo */}
-        <div className="auth-logo">
-          <span className="brand-logo-mark">C</span>
-          <span className="auth-logo-name">Custva</span>
-        </div>
-
-        {/* Step indicator */}
-        <div className="auth-step-row">
-          <div className={`auth-step-dot ${step === "credentials" ? "auth-step-dot--active" : "auth-step-dot--done"}`} />
-          <div className="auth-step-line" />
-          <div className={`auth-step-dot ${step === "otp" ? "auth-step-dot--active" : ""}`} />
-        </div>
-
-        {/* ── STEP 1: Credentials ── */}
+        {/* ── Step 1: password ── */}
         {step === "credentials" && (
           <>
-            <div className="auth-heading-block">
-              <h1 className="auth-heading">Welcome back</h1>
-              <p className="auth-subheading">
-                Sign in to your Custva merchant account
-              </p>
-            </div>
+            <p className="auth-step">Step 1 of 2 · Password</p>
+            <h1 className="auth-heading">Log in</h1>
+            <p className="auth-sub">
+              Your password first, then a six-digit code we email you.
+            </p>
 
             <form onSubmit={handleCredentialsSubmit} className="auth-form" noValidate>
-              <div className="auth-field">
+              <div>
                 <label className="auth-label" htmlFor="email">
                   Email address
                 </label>
@@ -268,7 +267,7 @@ export default function MerchantLoginPage() {
                   id="email"
                   type="email"
                   className="auth-input"
-                  placeholder="you@business.com"
+                  placeholder="you@yourshop.com"
                   value={email}
                   onChange={(e) => { setEmail(e.target.value); setError(""); }}
                   required
@@ -277,7 +276,7 @@ export default function MerchantLoginPage() {
                 />
               </div>
 
-              <div className="auth-field">
+              <div>
                 <label className="auth-label" htmlFor="password">
                   Password
                 </label>
@@ -286,7 +285,6 @@ export default function MerchantLoginPage() {
                     id="password"
                     type={showPassword ? "text" : "password"}
                     className="auth-input auth-input--with-icon"
-                    placeholder="Your password"
                     value={password}
                     onChange={(e) => { setPassword(e.target.value); setError(""); }}
                     required
@@ -300,55 +298,50 @@ export default function MerchantLoginPage() {
                     tabIndex={-1}
                   >
                     {showPassword ? (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M17.9 17.9A10 10 0 0 1 12 20c-7 0-11-8-11-8a18.4 18.4 0 0 1 5.1-5.9M9.9 4.2A9.1 9.1 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.2 3.2m-6.7-1.1a3 3 0 1 1-4.2-4.2" />
+                        <path d="M2 2l20 20" />
+                      </svg>
                     ) : (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M1.5 12S5.5 4.5 12 4.5 22.5 12 22.5 12 18.5 19.5 12 19.5 1.5 12 1.5 12Z" />
+                        <circle cx="12" cy="12" r="3.2" />
+                      </svg>
                     )}
                   </button>
                 </div>
               </div>
 
-              {error && (
-                <div className="auth-error" role="alert">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
-                  {error}
-                </div>
-              )}
+              {ErrorMsg}
 
               <button
                 type="submit"
-                className="auth-submit-btn"
+                className="auth-btn"
                 disabled={loading || !email || !password}
                 id="login-submit-btn"
               >
-                {loading ? (
-                  <span className="auth-spinner" />
-                ) : (
-                  "Continue"
-                )}
+                {loading ? <span className="auth-spinner" /> : "Continue"}
               </button>
             </form>
 
-            <p className="auth-footer-note">
-              We&apos;ll send a one-time verification code to your email.
+            <p className="auth-note">
+              The code goes to your email, not your phone — the same address you
+              signed up with.
             </p>
           </>
         )}
 
-        {/* ── STEP 2: OTP Verification ── */}
+        {/* ── Step 2: emailed code ── */}
         {step === "otp" && (
           <>
-            <div className="auth-heading-block">
-              <h1 className="auth-heading">Check your email</h1>
-              <p className="auth-subheading">
-                We sent a 6-digit code to{" "}
-                <span className="auth-email-highlight">{email}</span>
-              </p>
-            </div>
+            <p className="auth-step">Step 2 of 2 · Emailed code</p>
+            <h1 className="auth-heading">Enter the code</h1>
+            <p className="auth-sub">
+              Six digits, sent to <strong>{email}</strong>.
+            </p>
 
             <form onSubmit={handleOtpSubmit} className="auth-form" noValidate>
-              {/* OTP digit boxes */}
-              <div className="otp-boxes" role="group" aria-label="One-time password">
+              <div className="otp-boxes" role="group" aria-label="One-time code">
                 {otpDigits.map((digit, i) => (
                   <input
                     key={i}
@@ -369,80 +362,69 @@ export default function MerchantLoginPage() {
                 ))}
               </div>
 
-              {/* Timer */}
-              <div className="otp-timer-row">
-                {secondsLeft > 0 ? (
-                  <span className="otp-timer">
-                    Code expires in{" "}
-                    <span className={`otp-timer-value ${secondsLeft <= 60 ? "otp-timer-value--urgent" : ""}`}>
-                      {formatTime(secondsLeft)}
-                    </span>
-                  </span>
-                ) : (
-                  <span className="otp-timer otp-timer--expired">Code expired</span>
-                )}
+              <div className={`otp-meta ${secondsLeft <= 60 ? "otp-meta--urgent" : ""}`}>
+                <span>
+                  {secondsLeft > 0
+                    ? `Expires in ${formatTime(secondsLeft)}`
+                    : "Code expired"}
+                </span>
               </div>
 
-              {error && (
-                <div className="auth-error" role="alert">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
-                  {error}
-                </div>
-              )}
+              {ErrorMsg}
 
               {successMsg && (
-                <div className="auth-success" role="status">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                <div className="auth-msg auth-msg--ok" role="status">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4.5 12.5l5 5 10-11" />
+                  </svg>
                   {successMsg}
                 </div>
               )}
 
               <button
                 type="submit"
-                className="auth-submit-btn"
+                className="auth-btn"
                 disabled={loading || !otpFilled || secondsLeft === 0}
                 id="otp-submit-btn"
               >
-                {loading ? <span className="auth-spinner" /> : "Verify & Sign in"}
+                {loading ? <span className="auth-spinner" /> : "Verify and log in"}
               </button>
             </form>
 
-            {/* Resend + back */}
-            <div className="otp-actions">
-              <span className="otp-actions-label">Didn&apos;t receive a code?</span>
+            <div className="auth-note">
+              You can paste the whole code into the first box.
+              <br />
+              Nothing arrived?{" "}
               <button
                 type="button"
-                className="otp-resend-btn"
+                className="auth-textbtn"
                 onClick={handleResend}
                 disabled={resendCooldown > 0 || loading}
                 id="otp-resend-btn"
               >
-                {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend code"}
+                {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Send another"}
+              </button>
+              <br />
+              <button
+                type="button"
+                className="auth-textbtn"
+                onClick={() => {
+                  setStep("credentials");
+                  setError("");
+                  setOtpDigits(Array(OTP_LENGTH).fill(""));
+                  if (timerRef.current) clearInterval(timerRef.current);
+                }}
+              >
+                Use a different account
               </button>
             </div>
-
-            <button
-              type="button"
-              className="otp-back-btn"
-              onClick={() => {
-                setStep("credentials");
-                setError("");
-                setOtpDigits(Array(OTP_LENGTH).fill(""));
-                if (timerRef.current) clearInterval(timerRef.current);
-              }}
-            >
-              ← Use a different account
-            </button>
           </>
         )}
       </div>
 
-      {/* Bottom link */}
-      <p className="auth-bottom-link">
-        New to Custva?{" "}
-        <Link href="/" className="auth-link">
-          Learn more
-        </Link>
+      <p className="auth-below">
+        New to Custva? <Link href="/">See what it does</Link>
       </p>
     </div>
   );

@@ -3,15 +3,17 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
+import "../auth.css";
 
 type Step = "credentials" | "otp";
 const OTP_LENGTH = 6;
 const OTP_EXPIRY = 10 * 60;
 
 const REASON_MESSAGES: Record<string, string> = {
-  logged_out: "You have been logged out successfully.",
-  session_expired: "Your session expired. Please sign in again.",
-  auth_required: "Please sign in to access the admin panel."
+  logged_out: "You are logged out.",
+  session_expired: "Your session expired. Log in again.",
+  auth_required: "Log in to reach the admin console."
 };
 
 export default function AdminLoginPage() {
@@ -123,7 +125,7 @@ export default function AdminLoginPage() {
     e.preventDefault();
     const otp = otpDigits.join("");
     if (otp.length < OTP_LENGTH) {
-      setError("Enter all 6 digits.");
+      setError("Enter all six digits.");
       return;
     }
     if (secondsLeft === 0) {
@@ -199,274 +201,199 @@ export default function AdminLoginPage() {
 
   const otpFull = otpDigits.every((d) => d !== "");
 
+  const ErrorMsg = error ? (
+    <div className="auth-msg auth-msg--error" role="alert">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           strokeWidth="1.8" strokeLinecap="round">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7.5v5M12 16.2v.2" />
+      </svg>
+      {error}
+    </div>
+  ) : null;
+
+  const Note = ({ children }: { children: React.ReactNode }) => (
+    <div className="auth-msg auth-msg--note" role="status">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           strokeWidth="1.8" strokeLinecap="round">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 11v5.5M12 7.6v.2" />
+      </svg>
+      {children}
+    </div>
+  );
+
+  const Ok = ({ children }: { children: React.ReactNode }) => (
+    <div className="auth-msg auth-msg--ok" role="status">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4.5 12.5l5 5 10-11" />
+      </svg>
+      {children}
+    </div>
+  );
+
   return (
-    <div className="admin-auth-shell">
-      <div className="admin-auth-orb admin-auth-orb--tl" aria-hidden="true" />
-      <div className="admin-auth-orb admin-auth-orb--br" aria-hidden="true" />
+    <div className="auth">
+      <div className="auth-brand" style={{ flexDirection: "column", alignItems: "center" }}>
+        <Image src="/custva-wordmark.png" alt="Custva" width={116} height={24} priority />
+        <span className="auth-badge">Admin console</span>
+      </div>
 
-      <Link href="/" className="admin-auth-back">
-        ← Back to portal
-      </Link>
+      <div className="auth-card">
+        {/* ── Step 1: password ── */}
+        {step === "credentials" && (
+          <>
+            <p className="auth-step">Step 1 of 2 · Password</p>
+            <h1 className="auth-heading">Log in</h1>
+            <p className="auth-sub">
+              Platform administration — merchants, the global template
+              catalogue and network figures.
+            </p>
 
-      <div className="admin-auth-card">
-        <div className="admin-auth-card-header">
-          <div className="admin-auth-logo">
-            <div className="admin-auth-logo-mark">C</div>
-            <div>
-              <div className="admin-auth-logo-title">Custva</div>
-              <div className="admin-auth-logo-sub">Admin Panel</div>
-            </div>
-          </div>
-          <div className="admin-auth-step-row">
-            <div
-              className={`admin-auth-step ${step === "credentials" ? "admin-auth-step--active" : "admin-auth-step--done"}`}
-            >
-              <span>1</span>
-              <span>Identity</span>
-            </div>
-            <div className="admin-auth-step-connector" />
-            <div className={`admin-auth-step ${step === "otp" ? "admin-auth-step--active" : ""}`}>
-              <span>2</span>
-              <span>Verify</span>
-            </div>
-          </div>
-        </div>
+            {reasonMessage && (
+              <div style={{ marginTop: "1.25rem" }}>
+                <Note>{reasonMessage}</Note>
+              </div>
+            )}
 
-        <div className="admin-auth-card-body">
-          {step === "credentials" && (
-            <>
-              <div className="admin-auth-heading-block">
-                <div className="admin-auth-lock-icon" aria-hidden="true">
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                  </svg>
-                </div>
-                <h1 className="admin-auth-heading">Admin Authentication</h1>
-                <p className="admin-auth-subheading">
-                  Enter your admin email and password to continue.
-                </p>
+            <form onSubmit={submitCredentials} className="auth-form" noValidate>
+              <div>
+                <label className="auth-label" htmlFor="admin-email">
+                  Admin email
+                </label>
+                <input
+                  id="admin-email"
+                  type="email"
+                  className="auth-input"
+                  placeholder="you@custva.com"
+                  value={email}
+                  onChange={(e) => { setEmail(e.target.value); setError(""); }}
+                  required
+                  autoFocus
+                  autoComplete="email"
+                />
               </div>
 
-              {reasonMessage && (
-                <div className="admin-auth-success" role="status">
-                  {reasonMessage}
-                </div>
-              )}
-
-              <form onSubmit={submitCredentials} className="admin-auth-form" noValidate>
-                <div className="admin-auth-field">
-                  <label className="admin-auth-label" htmlFor="admin-email">
-                    Admin Email
-                  </label>
+              <div>
+                <label className="auth-label" htmlFor="admin-password">
+                  Password
+                </label>
+                <div className="auth-input-wrap">
                   <input
-                    id="admin-email"
-                    type="email"
-                    className="admin-auth-input admin-auth-input--field"
-                    placeholder="admin@custva.local"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      setError("");
-                    }}
+                    id="admin-password"
+                    type={showPw ? "text" : "password"}
+                    className="auth-input auth-input--with-icon"
+                    value={password}
+                    onChange={(e) => { setPassword(e.target.value); setError(""); }}
                     required
-                    autoFocus
-                    autoComplete="email"
+                    autoComplete="current-password"
                   />
-                </div>
-
-                <div className="admin-auth-field">
-                  <label className="admin-auth-label" htmlFor="admin-password">
-                    Password
-                  </label>
-                  <div className="admin-auth-input-wrap">
-                    <input
-                      id="admin-password"
-                      type={showPw ? "text" : "password"}
-                      className="admin-auth-input admin-auth-input--field admin-auth-input--with-icon"
-                      placeholder="Enter admin password"
-                      value={password}
-                      onChange={(e) => {
-                        setPassword(e.target.value);
-                        setError("");
-                      }}
-                      required
-                      autoComplete="current-password"
-                    />
-                    <button
-                      type="button"
-                      className="admin-auth-toggle-pw"
-                      onClick={() => setShowPw((v) => !v)}
-                      aria-label={showPw ? "Hide" : "Show"}
-                      tabIndex={-1}
-                    >
-                      {showPw ? (
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                        >
-                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-                          <line x1="1" y1="1" x2="23" y2="23" />
-                        </svg>
-                      ) : (
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                        >
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                          <circle cx="12" cy="12" r="3" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {error && (
-                  <div className="admin-auth-error" role="alert">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
-                    </svg>
-                    {error}
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  className="admin-auth-btn"
-                  disabled={loading || !email || !password}
-                  id="admin-password-submit"
-                >
-                  {loading ? <span className="admin-auth-spinner" /> : "Authenticate"}
-                </button>
-              </form>
-
-              <p className="admin-auth-notice">
-                A one-time code will be sent to the registered admin email.
-              </p>
-            </>
-          )}
-
-          {step === "otp" && (
-            <>
-              <div className="admin-auth-heading-block">
-                <div className="admin-auth-lock-icon admin-auth-lock-icon--open" aria-hidden="true">
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                  <button
+                    type="button"
+                    className="auth-input-icon-btn"
+                    onClick={() => setShowPw((v) => !v)}
+                    aria-label={showPw ? "Hide password" : "Show password"}
+                    tabIndex={-1}
                   >
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                    <path d="M7 11V7a5 5 0 0 1 9.9-1" />
-                  </svg>
+                    {showPw ? (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M17.9 17.9A10 10 0 0 1 12 20c-7 0-11-8-11-8a18.4 18.4 0 0 1 5.1-5.9M9.9 4.2A9.1 9.1 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.2 3.2m-6.7-1.1a3 3 0 1 1-4.2-4.2" />
+                        <path d="M2 2l20 20" />
+                      </svg>
+                    ) : (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M1.5 12S5.5 4.5 12 4.5 22.5 12 22.5 12 18.5 19.5 12 19.5 1.5 12 1.5 12Z" />
+                        <circle cx="12" cy="12" r="3.2" />
+                      </svg>
+                    )}
+                  </button>
                 </div>
-                <h1 className="admin-auth-heading">Verify Identity</h1>
-                <p className="admin-auth-subheading">
-                  A 6-digit code was sent to{" "}
-                  <span className="admin-auth-email-highlight">{email}</span>
-                </p>
               </div>
 
-              <form onSubmit={verifyOtp} className="admin-auth-form" noValidate>
-                <div className="admin-otp-boxes" role="group" aria-label="One-time code">
-                  {otpDigits.map((d, i) => (
-                    <input
-                      key={i}
-                      ref={(el) => {
-                        otpRefs.current[i] = el;
-                      }}
-                      id={`admin-otp-${i}`}
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      maxLength={1}
-                      className={`admin-otp-box ${d ? "admin-otp-box--filled" : ""}`}
-                      value={d}
-                      onChange={(e) => handleOtpChange(i, e.target.value)}
-                      onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                      onPaste={i === 0 ? handlePaste : undefined}
-                      autoComplete="one-time-code"
-                      aria-label={`Digit ${i + 1}`}
-                    />
-                  ))}
-                </div>
-
-                <div className="admin-otp-timer-row">
-                  {secondsLeft > 0 ? (
-                    <span
-                      className={`admin-otp-timer ${secondsLeft <= 60 ? "admin-otp-timer--urgent" : ""}`}
-                    >
-                      Code expires in <strong>{fmt(secondsLeft)}</strong>
-                    </span>
-                  ) : (
-                    <span className="admin-otp-timer admin-otp-timer--expired">Code expired</span>
-                  )}
-                </div>
-
-                {error && (
-                  <div className="admin-auth-error" role="alert">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
-                    </svg>
-                    {error}
-                  </div>
-                )}
-                {successMsg && (
-                  <div className="admin-auth-success" role="status">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                    </svg>
-                    {successMsg}
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  className="admin-auth-btn"
-                  disabled={loading || !otpFull || secondsLeft === 0}
-                  id="admin-otp-submit"
-                >
-                  {loading ? <span className="admin-auth-spinner" /> : "Verify & Enter"}
-                </button>
-              </form>
-
-              <div className="admin-otp-footer">
-                <span>Didn&apos;t receive a code?</span>
-                <button
-                  type="button"
-                  className="admin-otp-resend"
-                  onClick={resend}
-                  disabled={resendCooldown > 0 || loading}
-                  id="admin-otp-resend"
-                >
-                  {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend code"}
-                </button>
-              </div>
+              {ErrorMsg}
 
               <button
+                type="submit"
+                className="auth-btn"
+                disabled={loading || !email || !password}
+                id="admin-login-submit"
+              >
+                {loading ? <span className="auth-spinner" /> : "Continue"}
+              </button>
+            </form>
+
+            <p className="auth-note">
+              A six-digit code goes to your admin email next.
+            </p>
+          </>
+        )}
+
+        {/* ── Step 2: emailed code ── */}
+        {step === "otp" && (
+          <>
+            <p className="auth-step">Step 2 of 2 · Emailed code</p>
+            <h1 className="auth-heading">Enter the code</h1>
+            <p className="auth-sub">
+              Six digits, sent to <strong>{email}</strong>.
+            </p>
+
+            <form onSubmit={verifyOtp} className="auth-form" noValidate>
+              <div className="otp-boxes" role="group" aria-label="One-time code">
+                {otpDigits.map((d, i) => (
+                  <input
+                    key={i}
+                    ref={(el) => { otpRefs.current[i] = el; }}
+                    id={`admin-otp-${i}`}
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={1}
+                    className={`otp-box ${d ? "otp-box--filled" : ""}`}
+                    value={d}
+                    onChange={(e) => handleOtpChange(i, e.target.value)}
+                    onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                    onPaste={i === 0 ? handlePaste : undefined}
+                    autoComplete="one-time-code"
+                    aria-label={`Digit ${i + 1}`}
+                  />
+                ))}
+              </div>
+
+              <div className={`otp-meta ${secondsLeft <= 60 ? "otp-meta--urgent" : ""}`}>
+                <span>{secondsLeft > 0 ? `Expires in ${fmt(secondsLeft)}` : "Code expired"}</span>
+              </div>
+
+              {ErrorMsg}
+              {successMsg && <Ok>{successMsg}</Ok>}
+
+              <button
+                type="submit"
+                className="auth-btn"
+                disabled={loading || !otpFull || secondsLeft === 0}
+                id="admin-otp-submit"
+              >
+                {loading ? <span className="auth-spinner" /> : "Verify and log in"}
+              </button>
+            </form>
+
+            <div className="auth-note">
+              You can paste the whole code into the first box.
+              <br />
+              Nothing arrived?{" "}
+              <button
                 type="button"
-                className="admin-otp-back"
+                className="auth-textbtn"
+                onClick={resend}
+                disabled={resendCooldown > 0 || loading}
+                id="admin-otp-resend"
+              >
+                {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Send another"}
+              </button>
+              <br />
+              <button
+                type="button"
+                className="auth-textbtn"
                 onClick={() => {
                   setStep("credentials");
                   setError("");
@@ -474,15 +401,19 @@ export default function AdminLoginPage() {
                   if (timerRef.current) clearInterval(timerRef.current);
                 }}
               >
-                ← Back
+                Use a different account
               </button>
-            </>
-          )}
-        </div>
+            </div>
+          </>
+        )}
       </div>
 
-      <p className="admin-auth-legal">
-        Custva Admin · Unauthorised access is strictly prohibited · All actions logged
+      <p className="auth-legal">
+        Admin actions are recorded in the audit log
+      </p>
+
+      <p className="auth-below">
+        <Link href="/">Back to the portal</Link>
       </p>
     </div>
   );
