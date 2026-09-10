@@ -4,6 +4,12 @@ import { sendError, sendSuccess } from "../../lib/api-response.js";
 import { query, withTransaction } from "../../lib/db.js";
 import { writeAudit } from "../../lib/audit.js";
 import {
+  buildMetaTemplateComponents,
+  toMetaTemplateName,
+  validateTemplateForMeta
+} from "@custva/shared";
+import { WhatsAppCloudApiAdapter } from "@custva/whatsapp-adapters";
+import {
   forkTemplateToMerchant,
   getGlobalTemplate,
   mapTemplateRow,
@@ -370,6 +376,191 @@ adminTemplatesRouter.post("/:id/push-updates", async (req, res) => {
   const result = await runPush(req.params.id, body.merchantIds, body.force ?? false);
   await writeAudit(req, "template.push", "template", req.params.id, null, result);
   return sendSuccess(req, res, result);
+});
+
+
+/* ── Meta template lifecycle (Phase M) ──────────────────────────────────────
+   `approval_status` above is Custva's internal review flag and means nothing to
+   Meta. These three routes are what actually make a template sendable. */
+
+function templateAdmin() {
+  if (!process.env.WA_ACCESS_TOKEN || !process.env.WA_BUSINESS_ACCOUNT_ID) {
+    return null;
+  }
+  return new WhatsAppCloudApiAdapter({
+    phoneNumberId: process.env.WA_PHONE_NUMBER_ID ?? "",
+    accessToken: process.env.WA_ACCESS_TOKEN,
+    businessAccountId: process.env.WA_BUSINESS_ACCOUNT_ID
+  });
+}
+
+/**
+ * Dry run. Meta's review is slow and its rejection reasons are terse, so every
+ * structural problem caught here is a review cycle saved.
+ */
+adminTemplatesRouter.post("/:id/validate-for-meta", async (req, res) => {
+  const t = await query<{
+    name: string; body: string; header_text: string | null;
+    footer_text: string | null; buttons: Array<{ type: string; text: string }>;
+  }>(
+    `SELECT name, body, header_text, footer_text, buttons FROM templates WHERE id = $1`,
+    [req.params.id]
+  );
+  if (!t.rowCount) {
+    return sendError(req, res, "RESOURCE_NOT_FOUND", "Template not found", 404);
+  }
+  const row = t.rows[0];
+  const problems = validateTemplateForMeta({
+    name: row.name,
+    body: row.body,
+    headerText: row.header_text,
+    footerText: row.footer_text,
+    buttons: row.buttons
+  });
+  return sendSuccess(req, res, {
+    metaTemplateName: toMetaTemplateName(row.name),
+    submittable: problems.length === 0,
+    problems
+  });
+});
+
+/** Submit for Meta review. Approval is asynchronous — expect PENDING back. */
+adminTemplatesRouter.post("/:id/submit-to-meta", async (req, res) => {
+  const adapter = templateAdmin();
+  if (!adapter) {
+    return sendError(
+      req, res, "PROVIDER_ERROR",
+      "WA_ACCESS_TOKEN and WA_BUSINESS_ACCOUNT_ID must be configured to submit templates",
+      503
+    );
+  }
+
+  const t = await query<{
+    id: string; merchant_id: string | null; name: string; body: string;
+    header_text: string | null; header_image_handle: string | null;
+    footer_text: string | null; language_code: string;
+    buttons: Array<{ type: string; text: string; value?: string }>;
+    meta_category: string | null;
+  }>(
+    `SELECT id, merchant_id, name, body, header_text, header_image_handle,
+            footer_text, language_code, buttons, meta_category
+       FROM templates WHERE id = $1 AND archived_at IS NULL`,
+    [req.params.id]
+  );
+  if (!t.rowCount) {
+    return sendError(req, res, "RESOURCE_NOT_FOUND", "Template not found", 404);
+  }
+  const row = t.rows[0];
+
+  const problems = validateTemplateForMeta({
+    name: row.name, body: row.body,
+    headerText: row.header_text, footerText: row.footer_text, buttons: row.buttons
+  });
+  if (problems.length) {
+    return sendError(
+      req, res, "VALIDATION_ERROR",
+      "Template would be rejected by Meta", 422,
+      problems.map((p) => ({ field: p.field, issue: p.issue }))
+    );
+  }
+
+  const metaName = toMetaTemplateName(row.name);
+  const category = (row.meta_category ?? "MARKETING") as
+    "MARKETING" | "UTILITY" | "AUTHENTICATION";
+
+  try {
+    const created = await adapter.createTemplate({
+      name: metaName,
+      category,
+      languageCode: row.language_code ?? "en",
+      components: buildMetaTemplateComponents({
+        body: row.body,
+        headerText: row.header_text,
+        headerImageHandle: row.header_image_handle,
+        footerText: row.footer_text,
+        buttons: row.buttons
+      }) as unknown as Array<Record<string, unknown>>
+    });
+
+    await query(
+      `UPDATE templates
+          SET meta_template_name = $1, meta_template_id = $2, meta_status = $3,
+              meta_category = $4, meta_rejected_reason = NULL,
+              meta_submitted_at = NOW(), meta_synced_at = NOW(), updated_at = NOW()
+        WHERE id = $5`,
+      [metaName, created.metaTemplateId, created.status, category, row.id]
+    );
+
+    await writeAudit(
+      req,
+      "template.submitted_to_meta",
+      "template",
+      row.id,
+      null,
+      { metaTemplateName: metaName, status: created.status }
+    );
+
+    return sendSuccess(req, res, {
+      metaTemplateName: metaName,
+      metaTemplateId: created.metaTemplateId,
+      status: created.status
+    });
+  } catch (error) {
+    return sendError(
+      req, res, "PROVIDER_ERROR",
+      error instanceof Error ? error.message : "Template submission failed",
+      502
+    );
+  }
+});
+
+/** Poll Meta for the current review state and store it. */
+adminTemplatesRouter.post("/:id/sync-meta-status", async (req, res) => {
+  const adapter = templateAdmin();
+  if (!adapter) {
+    return sendError(req, res, "PROVIDER_ERROR", "Meta credentials not configured", 503);
+  }
+
+  const t = await query<{ id: string; meta_template_name: string | null }>(
+    `SELECT id, meta_template_name FROM templates WHERE id = $1`,
+    [req.params.id]
+  );
+  if (!t.rowCount || !t.rows[0].meta_template_name) {
+    return sendError(
+      req, res, "VALIDATION_ERROR",
+      "Template has not been submitted to Meta yet", 422
+    );
+  }
+
+  try {
+    const status = await adapter.fetchTemplateStatus(t.rows[0].meta_template_name);
+    if (!status) {
+      return sendError(
+        req, res, "RESOURCE_NOT_FOUND",
+        "Meta does not know this template name. It may have been deleted there.", 404
+      );
+    }
+
+    await query(
+      `UPDATE templates
+          SET meta_status = $1, meta_template_id = $2, meta_rejected_reason = $3,
+              meta_synced_at = NOW(), updated_at = NOW()
+        WHERE id = $4`,
+      [status.status, status.metaTemplateId, status.rejectedReason ?? null, t.rows[0].id]
+    );
+
+    return sendSuccess(req, res, {
+      status: status.status,
+      rejectedReason: status.rejectedReason ?? null,
+      sendable: status.status === "APPROVED"
+    });
+  } catch (error) {
+    return sendError(
+      req, res, "PROVIDER_ERROR",
+      error instanceof Error ? error.message : "Status sync failed",
+      502
+    );
+  }
 });
 
 export const adminJobsRouter: Router = Router();
