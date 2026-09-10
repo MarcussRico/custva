@@ -42,9 +42,40 @@ analyticsRouter.get("/dashboard", async (req, res) => {
     [merchantId]
   );
 
+  /* FR-M1/M2 — the split that makes the commission claim honest.
+     `todayRepeatRevenue` above is ALL repeat revenue: it includes regulars who
+     were coming back regardless. Only `influenced` may be described as revenue
+     Custva brought in (SRS §16). */
+  const splitRow = await query<{
+    organic: string;
+    influenced: string;
+    influenced_visits: string;
+  }>(
+    `SELECT
+       COALESCE(SUM(billing_amount) FILTER
+         (WHERE return_type = 'organic' AND is_repeat_visit = TRUE), 0)::text AS organic,
+       COALESCE(SUM(billing_amount) FILTER
+         (WHERE return_type = 'custva_influenced'), 0)::text AS influenced,
+       COUNT(*) FILTER (WHERE return_type = 'custva_influenced')::text AS influenced_visits
+     FROM customer_visits
+     WHERE merchant_id = $1 AND visit_at >= CURRENT_DATE - INTERVAL '30 days'`,
+    [merchantId]
+  );
+
+  const commissionRow = await query<{ pending: string; events: string }>(
+    `SELECT COALESCE(SUM(commission_amount), 0)::text AS pending,
+            COUNT(*)::text AS events
+       FROM commission_events
+      WHERE merchant_id = $1 AND status = 'pending'`,
+    [merchantId]
+  );
+
   const series = await query(
     `SELECT metric_date AS date, visits, revenue, new_customers AS "newCustomers",
-            messages_sent AS "messagesSent", messages_delivered AS "messagesDelivered"
+            messages_sent AS "messagesSent", messages_delivered AS "messagesDelivered",
+            organic_repeat_revenue AS "organicRepeatRevenue",
+            influenced_revenue AS "custvaInfluencedRevenue",
+            influenced_visits AS "influencedVisits"
      FROM daily_merchant_metrics
      WHERE merchant_id = $1 AND metric_date >= CURRENT_DATE - INTERVAL '30 days'
      ORDER BY metric_date ASC`,
@@ -77,7 +108,21 @@ analyticsRouter.get("/dashboard", async (req, res) => {
     repeatCustomers,
     todayVisits: Number(todayVisitsRow.rows[0].count),
     todayRevenue: Number(todayRevenueRow.rows[0].total),
-    todayRetentionRevenue: Number(todayRetentionRevenueRow.rows[0].total),
+    /* Renamed from todayRetentionRevenue. It is the sum of every repeat visit
+       and always was; calling it "retention revenue" on a dashboard implied
+       Custva produced it. Kept as a secondary metric per SRS §16. */
+    todayRepeatRevenue: Number(todayRetentionRevenueRow.rows[0].total),
+    /* FR-M2 — organic and influenced shown separately, never summed into one
+       headline number. */
+    last30Days: {
+      organicRepeatRevenue: Number(splitRow.rows[0].organic),
+      custvaInfluencedRevenue: Number(splitRow.rows[0].influenced),
+      influencedVisits: Number(splitRow.rows[0].influenced_visits)
+    },
+    commission: {
+      pendingAmount: Number(commissionRow.rows[0].pending),
+      pendingEvents: Number(commissionRow.rows[0].events)
+    },
     retentionRate,
     customerGrowth,
     activeCustomers: totalCustomers - Number(inactive.rows[0].count),

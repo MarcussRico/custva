@@ -9,7 +9,7 @@ export default async function MerchantDashboardPage() {
   let kpis: DashboardKpis = {
     todayVisits: 0,
     todayRevenue: 0,
-    todayRetentionRevenue: 0,
+    todayRepeatRevenue: 0,
     repeatCustomers: 0
   };
   let recentCustomers: RecentCustomer[] = [];
@@ -29,13 +29,19 @@ export default async function MerchantDashboardPage() {
     const stats = await merchantApi<{
       todayVisits: number;
       todayRevenue: number;
-      todayRetentionRevenue: number;
+      todayRepeatRevenue: number;
+      last30Days?: {
+        organicRepeatRevenue: number;
+        custvaInfluencedRevenue: number;
+        influencedVisits: number;
+      };
       repeatCustomers: number;
     }>("/analytics/dashboard");
     kpis = {
       todayVisits: stats.todayVisits ?? 0,
       todayRevenue: stats.todayRevenue ?? 0,
-      todayRetentionRevenue: stats.todayRetentionRevenue ?? 0,
+      todayRepeatRevenue: stats.todayRepeatRevenue ?? 0,
+      last30Days: stats.last30Days,
       repeatCustomers: stats.repeatCustomers ?? 0
     };
   } catch {
