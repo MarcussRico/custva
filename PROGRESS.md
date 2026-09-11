@@ -9,7 +9,7 @@ session; do not let it drift.
 | **Last updated** | 2026-09-11 |
 | **Current phase** | **All phases complete (0, A, B, C, M, D, E).** The SRS is built, plus holdout measurement |
 | **Next action** | **Stop building.** Get Meta credentials and a pilot merchant — every remaining gap needs reality, not code |
-| **Blocking** | No write access to `Madan94/custva`; nothing is committed anywhere |
+| **Blocking** | No write access to `Madan94/custva`. Work is on a fork, open as [PR #1](https://github.com/Madan94/custva/pull/1) |
 | **Decision needed** | Shared vs per-merchant WhatsApp number (§6). Blocks SRS schema work |
 
 ---
@@ -47,7 +47,41 @@ Authoritative documents, in reading order:
 
 ## 2. Done
 
-### Frontend redesign — complete, deployed, unverified by anyone but us
+### Frontend redesign — complete and deployed
+
+**The landing page was reworked three times after review.** Recording the
+sequence because the lesson is not in the final file:
+
+1. Rebuilt from scratch around the product's own mechanism (the return loop).
+2. Feedback: *too complex, reads like a client-acquisition site.* Cut to
+   243 words, five sections, zero interactive components.
+3. Feedback: *use the old content.* The original page's copy was restored —
+   hero, feature names, Why Now, FAQ, closing CTA — in the current design
+   language rather than rewritten.
+
+What survived all three passes is the design system and the honesty work, not
+the words. Worth knowing before rewriting the copy again: the wording is the
+client's, the structure is not.
+
+Carried through from the review brief: positioning is "Customer intelligence
+for business", the stats strip is gone, Why Now keeps four points with WhatsApp
+last and drawn icons instead of emoji, "Our Product in Action" and its mockup
+are gone, How It Works shows the real flow, the nav reaches every section, and
+the contact number is **+91 63802 88707**.
+
+**Four lines of the original copy were deliberately not restored**, because they
+are not true of the product:
+
+| Original line | Why not |
+|---|---|
+| "All data is stored on Indian cloud infrastructure and handled in compliance with India's DPDP Act" | Deploy target is Vercel + managed Postgres; region is a deployment choice. README §18 still lists CSRF as outstanding |
+| "Yes. Our platform supports multi-outlet management with branch-level analytics" | No such feature exists |
+| "Set up in just 10 minutes" | The runbook is nine steps |
+| "Free trial, no credit card needed" | There is no billing system |
+
+The first two are FAQ questions, so they are answered honestly rather than
+deleted. If the client asks for any of these back verbatim, that is their call —
+but it should be an explicit decision, not a quiet restoration.
 
 Landing page, merchant login and admin login rebuilt. 13 bugs found and fixed,
 including three that failed silently (dead Tailwind utilities, invisible content

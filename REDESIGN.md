@@ -5,6 +5,7 @@ Covers three surfaces:
 | Surface | Route | Live |
 |---|---|---|
 | Marketing landing page | `web-merchant` `/` | https://custva-web.vercel.app |
+| Contact number | — | +91 63802 88707 (updated from +91 82706 57119) |
 | Merchant login | `web-merchant` `/login` | https://custva-web.vercel.app/login |
 | Admin login | `web-admin` `/login` | https://custva-admin.vercel.app/login |
 
