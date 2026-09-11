@@ -127,6 +127,34 @@ export function IconLayers({ className }: IconProps) {
   );
 }
 
+export function IconStore({ className }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <path d="M4 9.5V20h16V9.5" />
+      <path d="M3 9.5 5 4h14l2 5.5a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0Z" />
+      <path d="M10 20v-5.5h4V20" />
+    </svg>
+  );
+}
+
+export function IconTrend({ className }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <path d="M3.5 17.5 9 11l4 3.6 7-8.1" />
+      <path d="M15.5 6.5h5v5" />
+    </svg>
+  );
+}
+
+export function IconCoin({ className }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <circle cx="12" cy="12" r="8.2" />
+      <path d="M12 7.5v9M14.3 9.6a2.6 2.6 0 0 0-2.3-1.2c-1.4 0-2.3.8-2.3 1.9 0 2.6 4.8 1.4 4.8 4 0 1.2-1 2-2.5 2a2.7 2.7 0 0 1-2.4-1.3" />
+    </svg>
+  );
+}
+
 export function IconArrowRight({ className }: IconProps) {
   return (
     <svg {...base} className={className}>

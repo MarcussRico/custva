@@ -661,3 +661,106 @@
 }
 
 
+
+/* ── Hover, used consistently rather than decoratively ───────────────── */
+
+/* Nav: a rule that grows from the left on hover, and stays put for the
+   section you are currently reading. */
+.nav-link {
+  position: relative;
+  padding-bottom: 2px;
+}
+.nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 1.5px;
+  width: 100%;
+  background: var(--color-yellow);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.nav-link:hover::after { transform: scaleX(1); }
+
+/* Section rows that are not cards still acknowledge the cursor. */
+.hoverable {
+  transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.24s ease;
+}
+.hoverable:hover {
+  transform: translateY(-2px);
+  border-color: var(--rule);
+}
+
+/* A numbered rail down the left of each "why now" row, which fills on hover. */
+.why-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem 1.75rem;
+  padding: 1.6rem 0;
+  border-top: 1px solid var(--rule-soft);
+}
+@media (min-width: 760px) {
+  .why-row { grid-template-columns: 44px 1fr; align-items: start; }
+}
+.why-icon {
+  width: 30px;
+  height: 30px;
+  color: var(--color-yellow-deep);
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), color 0.2s ease;
+}
+.why-row:hover .why-icon {
+  transform: translateY(-3px) rotate(-4deg);
+  color: var(--color-coral-deep);
+}
+.why-title {
+  font-family: var(--font-display);
+  font-size: 1.12rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+.why-desc {
+  margin-top: 0.3rem;
+  color: var(--color-ink-soft);
+  font-size: 0.96rem;
+  max-width: 60ch;
+}
+
+/* Straight answers: plain text, no accordion. Fewer moving parts than the
+   FAQ it replaces, and the content stays. */
+.answer-row {
+  padding: 1.1rem 0;
+  border-bottom: 1px solid var(--rule-soft);
+  max-width: 74ch;
+}
+.answer-row:last-child { border-bottom: 0; }
+.answer-q {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+.answer-a { color: var(--color-ink-soft); font-size: 0.95rem; }
+
+.contact-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 2.5rem;
+  align-items: baseline;
+}
+.contact-link {
+  font-family: var(--font-display);
+  font-size: clamp(1.1rem, 2.2vw, 1.5rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--color-ink);
+  text-decoration: none;
+  border-bottom: 2px solid var(--color-yellow);
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+.contact-link:hover {
+  color: var(--color-coral-deep);
+  border-bottom-color: var(--color-coral);
+}
