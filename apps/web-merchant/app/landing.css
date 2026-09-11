@@ -819,3 +819,18 @@
   background: var(--color-coral);
   transform: scale(1.35);
 }
+
+/* Business-type tags from the original page, without the emoji. */
+.biz-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.biz-tag {
+  font-size: 0.88rem;
+  color: var(--color-ink-soft);
+  background: var(--color-paper-deep);
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+.biz-tag:hover {
+  color: var(--color-ink);
+  background: var(--color-yellow);
+}

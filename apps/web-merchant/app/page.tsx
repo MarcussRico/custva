@@ -4,57 +4,121 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import "./landing.css";
 
-import { Mark, Wordmark, IconArrowRight } from "../components/landing/brand";
+import {
+  Mark,
+  Wordmark,
+  IconArrowRight,
+  IconBubble,
+  IconClock,
+  IconCoin,
+  IconCounter,
+  IconFilter,
+  IconPeople,
+  IconStore,
+  IconTrend,
+} from "../components/landing/brand";
 import { ReturnLoop } from "../components/landing/ReturnLoop";
 import { useLandingMotion } from "../components/landing/motion";
 
-/* One page, read in under a minute. Everything that needed a click, a tab or a
-   second paragraph has been taken out — what is left is what a shop owner needs
-   to decide whether to reply. */
+/* The original landing page's copy, in the current design language.
+   Changes asked for: the positioning line, no stats strip, Why Now with
+   WhatsApp last and no emoji, no "Our Product in Action", the real flow in
+   How It Works, a nav that reaches every section, and the new number. */
 
 const NAV = [
-  { label: "How it works", href: "#how" },
-  { label: "Why now", href: "#why" },
-  { label: "Questions", href: "#questions" },
+  { label: "Features", href: "#features" },
+  { label: "How it works", href: "#how-it-works" },
+  { label: "Why now", href: "#why-now" },
+  { label: "FAQ", href: "#faq" },
+  { label: "Contact", href: "#contact" },
 ];
 
-const STEPS = [
+const BUSINESSES = [
+  "Cafes",
+  "Restaurants",
+  "Bakeries",
+  "Salons",
+  "Retail stores",
+  "Gyms",
+];
+
+const FEATURES = [
   {
-    n: "01",
-    title: "Log the visit",
-    body: "Name, mobile, what they spent. Ten seconds at the counter.",
+    Icon: IconPeople,
+    title: "Customer Intelligence",
+    body: "Capture walk-in profiles, visit frequency, and average spend from one unified dashboard.",
   },
   {
-    n: "02",
-    title: "We learn their rhythm",
-    body: "How often that person normally comes back, from their own history.",
+    Icon: IconBubble,
+    title: "WhatsApp Campaigns",
+    body: "Send personalised, segmented WhatsApp messages at scale. Schedule, queue, and track delivery in real time.",
   },
   {
-    n: "03",
-    title: "They go quiet, we message",
-    body: "A WhatsApp message with a picture, in your words, when they are actually late.",
+    Icon: IconTrend,
+    title: "Retention Analytics",
+    body: "Measure repeat rate, inactive cohorts, and campaign results with clarity. Know exactly what's working.",
+  },
+  {
+    Icon: IconFilter,
+    title: "Audience Segmentation",
+    body: "Filter by recency, spend, or visit count. Target the right customers at the right moment.",
+  },
+  {
+    Icon: IconClock,
+    title: "Workflow Automation",
+    body: "Automate follow-ups, re-engagement sequences, and milestone rewards without any manual effort.",
+  },
+  {
+    Icon: IconCounter,
+    title: "Built for the counter",
+    body: "A POS-style capture screen your staff can use between customers. No training required.",
   },
 ];
 
-/* WhatsApp last, as asked. */
-const WHY = [
-  "A shop sees the same faces every week and remembers none of them. Online shops remember everything.",
-  "Winning back someone who already likes you costs less than finding someone new.",
-  "WhatsApp is where your customers already are — no app, no new habit. They opt in first.",
+/* WhatsApp moved to last, emoji replaced with the drawn icon set. */
+const WHY_NOW = [
+  {
+    Icon: IconStore,
+    title: "Offline businesses are losing to online",
+    body: "E-commerce wins on data. Now you can too — with zero tech complexity, built for the offline world.",
+  },
+  {
+    Icon: IconCoin,
+    title: "Acquiring new customers costs more than keeping them",
+    body: "Retention is your highest-ROI channel. Custva makes it systematic, trackable, and automatic.",
+  },
+  {
+    Icon: IconTrend,
+    title: "Your data is sitting idle right now",
+    body: "Every visit, every purchase is a signal you're missing. Custva turns those signals into action.",
+  },
+  {
+    Icon: IconBubble,
+    title: "WhatsApp is where your customers already are",
+    body: "Reach them instantly — no new app, no friction, no downloads. They opt in first.",
+  },
 ];
 
-const QUESTIONS = [
+const FAQS = [
   {
-    q: "What does it cost to send?",
-    a: "Meta charges per conversation. Custva adds a daily cap so a mistake cannot run up a bill.",
+    q: "Who is Custva built for?",
+    a: "Offline businesses — cafes, restaurants, bakeries, salons, gyms, and local retail stores that want to grow through repeat customers.",
   },
   {
-    q: "Do customers have to agree?",
-    a: "Yes. Only customers who opt in are messaged.",
+    q: "Do my customers need to download an app?",
+    a: "No. Custva works entirely via WhatsApp. Your customers receive messages on their existing number — zero friction, zero downloads. They do have to opt in first.",
   },
   {
-    q: "Is it finished?",
-    a: "No. It works end to end, but it is an MVP and we would rather say so.",
+    q: "What does the messaging cost?",
+    a: "Meta bills per conversation through the WhatsApp Cloud API, and Custva does not change that. What it adds is a daily cap per business, so a mistake cannot run up a bill.",
+  },
+  {
+    q: "How is customer data stored?",
+    a: "In a Postgres database belonging to the deployment, with every query scoped to your business and sessions held in httpOnly cookies. The hosting region is chosen when your instance is set up — ask us where yours would run.",
+  },
+  {
+    q: "Can I use Custva for multiple outlets?",
+    a: "Not yet. One account is one business today — no branch split, no per-outlet reporting. If you run several, tell us, because it changes what we build next.",
   },
 ];
 
@@ -86,7 +150,7 @@ export default function LandingPage() {
             ))}
           </nav>
           <a href="#contact" className="btn btn-primary">
-            Talk to us
+            Book a demo
           </a>
         </header>
       </div>
@@ -96,75 +160,156 @@ export default function LandingPage() {
         <p className="instrument" data-hero-line>
           Customer intelligence for business
         </p>
-        <h1 className="display-xl mt-5 max-w-[16ch]">
+        <h1 className="display-xl mt-5 max-w-[17ch]">
           <span className="block" data-hero-line>
-            Know who comes back.
+            We grow your revenue
           </span>
           <span className="block" data-hero-line>
-            And who <span className="swash">stopped</span>.
+            by increasing{" "}
+            <span className="swash">customer retention</span>
           </span>
         </h1>
 
         <p className="lede mt-12" data-hero-sub>
-          Custva remembers your customers, notices when a regular goes quiet,
-          and sends the WhatsApp follow-up for you.
+          Custva helps cafes, restaurants, bakeries, salons, and retail stores
+          increase revenue — through smarter retention.
         </p>
 
-        <div className="mt-9" data-hero-cta>
+        <div className="mt-9 flex flex-wrap items-center gap-3" data-hero-cta>
           <a href="#contact" className="btn btn-primary">
-            Talk to us <IconArrowRight className="w-[18px] h-[18px]" />
+            Book a demo <IconArrowRight className="w-[18px] h-[18px]" />
           </a>
+          <a href="#how-it-works" className="btn btn-ghost">
+            How it works
+          </a>
+        </div>
+
+        <div className="biz-tags mt-8" data-hero-cta>
+          {BUSINESSES.map((b) => (
+            <span key={b} className="biz-tag">
+              {b}
+            </span>
+          ))}
         </div>
 
         <ReturnLoop />
       </section>
 
+      {/* ── Features ──────────────────────────────────────────────── */}
+      <section className="shell band band-line pt-20" id="features">
+        <p className="instrument eyebrow" data-reveal>
+          Platform features
+        </p>
+        <h2 className="display-lg max-w-[22ch]" data-reveal>
+          Everything your business needs to retain more customers
+        </h2>
+
+        <div className="grid-2 mt-12">
+          {FEATURES.map((f) => (
+            <article key={f.title} className="card tilt" data-reveal data-tilt>
+              <f.Icon className="feature-icon" />
+              <h3 className="display-md">{f.title}</h3>
+              <p className="mt-2.5 text-[0.95rem] leading-relaxed text-ink-soft">
+                {f.body}
+              </p>
+            </article>
+          ))}
+        </div>
+      </section>
+
       {/* ── How it works ──────────────────────────────────────────── */}
-      <section className="shell band band-line pt-20" id="how">
+      <section className="shell band band-line pt-20" id="how-it-works">
         <p className="instrument eyebrow" data-reveal>
           How it works
         </p>
-        <h2 className="display-lg max-w-[14ch]" data-reveal>
-          Three things
+        <h2 className="display-lg max-w-[20ch]" data-reveal>
+          Log the visit. We do the rest.
         </h2>
+        <p className="lede mt-6" data-reveal>
+          A first-timer gets a welcome sequence. Everyone else is left alone
+          until they are actually late by their own pattern — so a weekly
+          regular who turns up on Friday hears nothing.
+        </p>
 
         <div className="step-list mt-12">
-          {STEPS.map((s) => (
-            <div key={s.n} className="step-item hoverable" data-reveal>
-              <span className="step-n">{s.n}</span>
+          <div className="step-item hoverable" data-reveal>
+            <span className="step-n">01</span>
+            <div>
+              <h3 className="why-title">Capture walk-in data</h3>
+              <p className="why-desc">
+                Log customer name, phone, and spend at checkout.
+              </p>
+            </div>
+          </div>
+          <div className="step-item hoverable" data-reveal>
+            <span className="step-n">02</span>
+            <div>
+              <h3 className="why-title">We learn their rhythm</h3>
+              <p className="why-desc">
+                How often that person normally comes back, from their own visit
+                history.
+              </p>
+            </div>
+          </div>
+          <div className="step-item hoverable" data-reveal>
+            <span className="step-n">03</span>
+            <div>
+              <h3 className="why-title">They go quiet, we message</h3>
+              <p className="why-desc">
+                A WhatsApp message with a picture, in your words, when they have
+                missed their normal visit.
+              </p>
+            </div>
+          </div>
+          <div className="step-item hoverable" data-reveal>
+            <span className="step-n">04</span>
+            <div>
+              <h3 className="why-title">Measure and optimise</h3>
+              <p className="why-desc">
+                Track repeat visits and which returns followed a message, from
+                one dashboard.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Why now ───────────────────────────────────────────────── */}
+      <section className="shell band band-line pt-20" id="why-now">
+        <p className="instrument eyebrow" data-reveal>
+          Why now
+        </p>
+        <h2 className="display-lg max-w-[22ch]" data-reveal>
+          The perfect time to systemise retention
+        </h2>
+
+        <div className="mt-10">
+          {WHY_NOW.map((w) => (
+            <div key={w.title} className="why-row hoverable" data-reveal>
+              <w.Icon className="why-icon" />
               <div>
-                <h3 className="why-title">{s.title}</h3>
-                <p className="why-desc">{s.body}</p>
+                <h3 className="why-title">{w.title}</h3>
+                <p className="why-desc">{w.body}</p>
               </div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* ── Why now ───────────────────────────────────────────────── */}
-      <section className="shell band band-line pt-20" id="why">
+      {/* ── FAQ ───────────────────────────────────────────────────── */}
+      <section className="shell band band-line pt-20" id="faq">
         <p className="instrument eyebrow" data-reveal>
-          Why now
+          FAQ
         </p>
-        <ul className="why-list mt-8">
-          {WHY.map((w) => (
-            <li key={w} data-reveal>
-              {w}
-            </li>
-          ))}
-        </ul>
-      </section>
+        <h2 className="display-lg max-w-[18ch]" data-reveal>
+          Common questions, answered
+        </h2>
 
-      {/* ── Questions ─────────────────────────────────────────────── */}
-      <section className="shell band band-line pt-20" id="questions">
-        <p className="instrument eyebrow" data-reveal>
-          Questions
-        </p>
-        <div className="mt-8">
-          {QUESTIONS.map((q) => (
-            <div key={q.q} className="answer-row" data-reveal>
-              <p className="answer-q">{q.q}</p>
-              <p className="answer-a">{q.a}</p>
+        <div className="mt-10">
+          {FAQS.map((f) => (
+            <div key={f.q} className="answer-row" data-reveal>
+              <p className="answer-q">{f.q}</p>
+              <p className="answer-a">{f.a}</p>
             </div>
           ))}
         </div>
@@ -172,33 +317,73 @@ export default function LandingPage() {
 
       {/* ── Contact ───────────────────────────────────────────────── */}
       <section className="shell band band-line pt-20" id="contact">
-        <h2 className="display-lg max-w-[14ch]" data-reveal>
-          Come and see it
-        </h2>
-        <div className="mt-8 flex flex-col gap-3" data-reveal>
-          <a href="tel:+916380288707" className="contact-link">
-            +91 63802 88707
-          </a>
-          <a
-            href="mailto:custva.business@gmail.com"
-            className="contact-link text-[1rem]"
-          >
-            custva.business@gmail.com
-          </a>
+        <div className="cta-panel">
+          <div>
+            <p className="instrument eyebrow" data-reveal>
+              Connect with us
+            </p>
+            <h2 className="display-lg max-w-[16ch]" data-reveal>
+              Ready to make retention a system?
+            </h2>
+            <p className="lede mt-5" data-reveal>
+              Have a question, or want to know if Custva is right for your
+              business? Reach out — we respond quickly.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3" data-reveal>
+            <a href="tel:+916380288707" className="contact-link">
+              +91 63802 88707
+            </a>
+            <a
+              href="mailto:custva.business@gmail.com"
+              className="contact-link text-[1rem]"
+            >
+              custva.business@gmail.com
+            </a>
+            <span className="instrument mt-1">Mon–Sat · 10:00–19:00 IST</span>
+          </div>
         </div>
       </section>
 
       <footer className="footer">
-        <div className="shell flex items-center justify-between gap-6">
-          <div className="flex items-center gap-2.5">
-            <Mark size={16} />
-            <span className="text-[0.85rem] text-ink-soft">
-              © {new Date().getFullYear()} Custva
-            </span>
+        <div className="shell flex flex-col gap-10 sm:flex-row sm:justify-between">
+          <div className="max-w-[30ch]">
+            <Wordmark width={110} />
+            <p className="mt-4 text-[0.93rem] text-ink-soft">
+              Retention intelligence for offline businesses across India.
+            </p>
+            <p className="instrument mt-5">Built in India</p>
           </div>
-          <Link href="/login" className="footer-link">
-            Merchant log in
-          </Link>
+          <div className="flex gap-14">
+            <div>
+              <p className="instrument mb-2">Product</p>
+              {NAV.map((l) => (
+                <a key={l.href} href={l.href} className="footer-link">
+                  {l.label}
+                </a>
+              ))}
+            </div>
+            <div>
+              <p className="instrument mb-2">Contact</p>
+              <a href="tel:+916380288707" className="footer-link">
+                +91 63802 88707
+              </a>
+              <a href="mailto:custva.business@gmail.com" className="footer-link">
+                custva.business@gmail.com
+              </a>
+              <Link href="/login" className="footer-link">
+                Merchant log in
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        <div className="shell mt-12 flex items-center gap-2.5 border-t border-[color:var(--rule-soft)] pt-6">
+          <Mark size={16} />
+          <span className="text-[0.85rem] text-ink-soft">
+            © {new Date().getFullYear()} Custva. All rights reserved.
+          </span>
         </div>
       </footer>
     </main>
