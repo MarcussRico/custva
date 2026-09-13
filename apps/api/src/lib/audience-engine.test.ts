@@ -119,6 +119,50 @@ describe("buildAudienceQuery", () => {
   });
 });
 
+describe("buildAudienceQuery — behavioural targeting", () => {
+  /* The campaign builder sent none of this until 2026-09-13: the schema had
+     accepted `segments` and `overdueOnly` since Phase C, but the UI only ever
+     sent the legacy global filters, so every campaign targeted the thresholds
+     the segments exist to replace. These pin the SQL the builder now depends
+     on. */
+
+  it("targets by behavioural segment", () => {
+    const { sql, params } = buildAudienceQuery(MERCHANT, {
+      segments: ["at_risk", "dormant"],
+    });
+    assert.match(sql, /c\.segment = ANY/);
+    assert.deepEqual(params[params.length - 1], ["at_risk", "dormant"]);
+  });
+
+  it("targets customers past their own expected revisit", () => {
+    const { sql } = buildAudienceQuery(MERCHANT, { overdueOnly: true });
+    assert.match(sql, /expected_revisit_at <= NOW\(\)/);
+  });
+
+  it("combines a segment with overdue rather than replacing it", () => {
+    const { sql } = buildAudienceQuery(MERCHANT, {
+      segments: ["at_risk"],
+      overdueOnly: true,
+    });
+    assert.match(sql, /c\.segment = ANY/);
+    assert.match(sql, /expected_revisit_at <= NOW\(\)/);
+  });
+
+  it("keeps segment targeting inside the OR, not in scope", () => {
+    /* Segments are a *rule*, so an explicitly included customer is allowed to
+       bypass them — that is what manual include means. Tenancy and consent are
+       not, and the earlier tests prove those stay outside. */
+    const { sql } = buildAudienceQuery(MERCHANT, { segments: ["at_risk"] }, [FOREIGN]);
+    assert.match(orGroup(sql), /c\.segment = ANY/);
+  });
+
+  it("still excludes a withdrawn customer when targeting a segment", () => {
+    const { sql } = buildAudienceQuery(MERCHANT, { segments: ["at_risk"] }, [FOREIGN]);
+    assert.ok(sql.includes(consentScopeSql("c")));
+    assert.doesNotMatch(orGroup(sql), /consent_state/);
+  });
+});
+
 describe("buildCustomerListQuery — behavioural filters", () => {
   const base = { sortBy: "updatedAt" as const, page: 1, limit: 20 };
 

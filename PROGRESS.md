@@ -594,7 +594,7 @@ sending behaviour invisibly and sees none of the intelligence behind it.
 |---|---|
 | Segment + expected revisit on customers | ✅ **Done** — see below |
 | Who is overdue, on the dashboard | ✅ **Done** — see below |
-| Segment / overdue audience filters on campaigns | ❌ |
+| Segment / overdue audience filters on campaigns | ✅ **Done** — see §4d |
 | Organic vs influenced revenue | Partly — one dashboard tile |
 | Commission ledger | ❌ no screen |
 | `GET /campaigns/:id/lift` | ❌ nothing calls it |
@@ -768,6 +768,62 @@ to an `unknown` customer is a message to someone who never agreed, and Meta's
 opt-in policy makes it the merchant's number that pays. One constant in
 `packages/shared/src/consent.ts`, and `canMessage` carries a test that changes
 meaning with it rather than breaking.
+
+---
+
+## 4d. Campaign targeting — done 2026-09-13
+
+`audienceRulesSchema` had accepted `segments` and `overdueOnly` since Phase C.
+The campaign builder never sent them. So the entire Phase A–C engine was
+invisible to the only screen that composes a message: a merchant could see "4
+customers are overdue" on the dashboard, click Campaigns, and find no way to
+select them.
+
+What they fell back to was `inactiveDaysGte: 30` — the global threshold the
+segmentation exists to replace. On the seeded merchant, that comparison is
+stark:
+
+```
+inactive >= 30 days   → 0 customers      (the only tool they had)
+overdueOnly           → 3 customers      2 Overdue · 1 Long gone
+segments at_risk+dormant → 3 customers   (same three)
+```
+
+Zero versus three, on the same data, on the same day. The legacy filter is not
+merely coarse — it misses everyone, because a weekly regular three weeks late is
+still only 21 days inactive.
+
+### What changed
+
+- **Segment picker** leads the create form, spanning the grid, because who to
+  message is the reason to send at all. The spend/pincode/tag inputs below
+  narrow it; they are no longer the starting point.
+- **`POST /campaigns/preview-audience`** — a dry run from rules alone. The
+  existing preview needed a campaign to already exist, so a merchant committed
+  to an audience they had never seen and then checked it.
+- **Live count** as the rules change, with the segment breakdown and the consent
+  split: *"3 customers match · 2 Overdue · 1 Long gone · 1 of them have no
+  recorded consent."* "Matched" and "will be messaged" are different numbers
+  whenever some have no record, and conflating them silently is how a shop sends
+  to people who never agreed.
+- **"Message them"** on the dashboard's overdue panel, carrying the audience
+  across as URL state. The panel was previously a dead end.
+- The overdue panel now shows **"Asked to stop"** where a customer has
+  withdrawn. It lists 4 and the campaign matches 3; without this the difference
+  reads as a bug rather than the consent rule working.
+
+### Verified against the real stack
+
+Every count above came from the running API against the seeded merchant. Also
+confirmed: the withdrawn customer never appears in any audience (7 of 8, in
+every segment combination), and a manual include naming another merchant's
+customer is refused with a 422 rather than quietly counted — the same guard as
+`POST /` and `PUT /:id`, which the new route had at first been missing.
+
+Five regression tests pin the SQL. One of them asserts segment targeting sits
+*inside* the manual-include OR — segments are a rule a manual include may
+bypass, which is what manual include means — while tenancy and consent stay
+outside it, where nothing can re-admit someone.
 
 ---
 

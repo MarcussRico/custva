@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 interface Campaign {
   id: string;
@@ -24,6 +24,78 @@ interface CustomerOption {
   mobile: string;
 }
 
+/** The behavioural segments — each customer's own rhythm, not a global cut-off. */
+const SEGMENTS = [
+  { key: "at_risk", label: "Overdue", hint: "past their own usual gap" },
+  { key: "dormant", label: "Long gone", hint: "well past it" },
+  { key: "first_time", label: "First visit", hint: "been once" },
+  { key: "loyal", label: "On schedule", hint: "coming back as normal" }
+] as const;
+
+const SEGMENT_LABEL: Record<string, string> = {
+  at_risk: "Overdue",
+  dormant: "Long gone",
+  first_time: "First visit",
+  loyal: "On schedule",
+  unclassified: "No rhythm yet"
+};
+
+interface AudiencePreview {
+  count: number;
+  bySegment: Record<string, number>;
+  consent: { granted: number; unknown: number };
+  sample: Array<{ id: string; name: string; mobile: string; segment: string | null }>;
+}
+
+/**
+ * What the current rules actually match, before anything is committed.
+ *
+ * Reports three things a merchant needs and previously could not see: how many
+ * people, which segments they fall into, and how many of them can lawfully be
+ * messaged. "42 matched" and "42 will be messaged" are different numbers
+ * whenever some have no consent record, and quietly conflating them is how a
+ * shop ends up sending to people who never agreed.
+ */
+function AudienceSummary({
+  preview,
+  loading
+}: {
+  preview: AudiencePreview | null;
+  loading: boolean;
+}) {
+  if (loading && !preview) return <p className="merchant-muted">Counting…</p>;
+  if (!preview) return null;
+
+  if (preview.count === 0) {
+    return (
+      <p className="merchant-audience-summary merchant-audience-summary--empty">
+        No customers match these rules. Nothing would be sent.
+      </p>
+    );
+  }
+
+  const breakdown = Object.entries(preview.bySegment)
+    .sort((a, b) => b[1] - a[1])
+    .map(([key, n]) => `${n} ${SEGMENT_LABEL[key] ?? key}`)
+    .join(" · ");
+
+  return (
+    <div className="merchant-audience-summary">
+      <strong>
+        {preview.count.toLocaleString("en-IN")} customer
+        {preview.count === 1 ? "" : "s"} match
+      </strong>
+      <span>{breakdown}</span>
+      {preview.consent.unknown > 0 && (
+        <small>
+          {preview.consent.unknown} of them have no recorded consent. They will still be sent to
+          for now, but that record is what Meta asks for.
+        </small>
+      )}
+    </div>
+  );
+}
+
 export function CampaignsClient({
   campaigns,
   templates
@@ -41,18 +113,51 @@ export function CampaignsClient({
     minSpend: "",
     pincode: "",
     tag: "",
+    /* FR-I1 targeting. The API has accepted these since Phase C; the builder
+       never sent them, so every campaign fell back to the legacy global
+       thresholds the segments exist to replace. */
+    segments: [] as string[],
+    overdueOnly: false,
     scheduledAt: "",
     manualIncludeIds: [] as string[]
   });
+  /* The dashboard links here with an audience already chosen — "message the
+     overdue customers" has to arrive with those customers selected, not with an
+     empty form and a note about what to pick. */
+  const search = useSearchParams();
+  const prefill = useMemo(() => {
+    const raw = (search.get("segments") ?? "").split(",").filter(Boolean);
+    return {
+      segments: raw.filter((r) => SEGMENTS.some((s) => s.key === r)),
+      overdueOnly: search.get("overdueOnly") === "1"
+    };
+  }, [search]);
+
+  const [audience, setAudience] = useState<AudiencePreview | null>(null);
+  const [audienceLoading, setAudienceLoading] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
   const [customerResults, setCustomerResults] = useState<CustomerOption[]>([]);
 
-  const audienceRules = () => ({
-    ...(form.inactiveDaysGte ? { inactiveDaysGte: Number(form.inactiveDaysGte) } : {}),
-    ...(form.minSpend ? { minSpend: Number(form.minSpend) } : {}),
-    ...(form.pincode ? { pincode: form.pincode } : {}),
-    ...(form.tag ? { tags: [form.tag] } : {})
-  });
+  const audienceRules = useCallback(
+    () => ({
+      ...(form.inactiveDaysGte ? { inactiveDaysGte: Number(form.inactiveDaysGte) } : {}),
+      ...(form.minSpend ? { minSpend: Number(form.minSpend) } : {}),
+      ...(form.pincode ? { pincode: form.pincode } : {}),
+      ...(form.tag ? { tags: [form.tag] } : {}),
+      ...(form.segments.length ? { segments: form.segments } : {}),
+      ...(form.overdueOnly ? { overdueOnly: true } : {})
+    }),
+    [form.inactiveDaysGte, form.minSpend, form.pincode, form.tag, form.segments, form.overdueOnly]
+  );
+
+  const toggleSegment = (key: string) => {
+    setForm((prev) => ({
+      ...prev,
+      segments: prev.segments.includes(key)
+        ? prev.segments.filter((s) => s !== key)
+        : [...prev.segments, key]
+    }));
+  };
 
   const searchCustomers = async () => {
     const params = new URLSearchParams({ limit: "20", q: customerSearch });
@@ -120,6 +225,40 @@ export function CampaignsClient({
     else router.refresh();
   };
 
+  /* Applied once, on arrival. Kept out of useState's initialiser so a later
+     navigation with different params still takes effect. */
+  useEffect(() => {
+    if (!prefill.segments.length && !prefill.overdueOnly) return;
+    setForm((prev) => ({
+      ...prev,
+      segments: prefill.segments,
+      overdueOnly: prefill.overdueOnly
+    }));
+  }, [prefill]);
+
+  /* Counting the audience as the rules change is the whole point of targeting
+     by segment: "at risk" means nothing until you can see it is 12 people and
+     not 400. Before this the only preview ran *after* the campaign was created,
+     so a merchant committed to an audience they had never seen. */
+  useEffect(() => {
+    const rules = audienceRules();
+    const timer = setTimeout(() => {
+      setAudienceLoading(true);
+      void fetch("/api/campaigns/preview-audience", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audienceRules: rules, manualIncludeIds: form.manualIncludeIds })
+      })
+        .then((res) => res.json())
+        .then((json: { success: boolean; data?: AudiencePreview }) => {
+          setAudience(json.success && json.data ? json.data : null);
+        })
+        .catch(() => setAudience(null))
+        .finally(() => setAudienceLoading(false));
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [audienceRules, form.manualIncludeIds]);
+
   const toggleManualInclude = (id: string) => {
     setForm((prev) => ({
       ...prev,
@@ -151,6 +290,37 @@ export function CampaignsClient({
                 {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </label>
+            {/* Targeting by rhythm comes first, and spans the grid, because it
+                is the reason to send at all. The spend/pincode/tag filters
+                below narrow it; they are not the starting point. */}
+            <div className="merchant-form-wide merchant-audience-pick">
+              <p className="merchant-hint">Who to message</p>
+              <div className="merchant-segment-choices">
+                {SEGMENTS.map((seg) => (
+                  <label key={seg.key} className="merchant-segment-choice">
+                    <input
+                      type="checkbox"
+                      checked={form.segments.includes(seg.key)}
+                      onChange={() => toggleSegment(seg.key)}
+                    />
+                    <span>
+                      <strong>{seg.label}</strong>
+                      <small>{seg.hint}</small>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <label className="merchant-filter-check merchant-overdue-toggle">
+                <input
+                  type="checkbox"
+                  checked={form.overdueOnly}
+                  onChange={(e) => setForm({ ...form, overdueOnly: e.target.checked })}
+                />
+                <span>Only those past their own usual gap right now</span>
+              </label>
+              <AudienceSummary preview={audience} loading={audienceLoading} />
+            </div>
+
             <label>Inactive days (filter)<input type="number" value={form.inactiveDaysGte} onChange={(e) => setForm({ ...form, inactiveDaysGte: e.target.value })} /></label>
             <label>Min spend<input type="number" value={form.minSpend} onChange={(e) => setForm({ ...form, minSpend: e.target.value })} /></label>
             <label>Pincode<input maxLength={6} value={form.pincode} onChange={(e) => setForm({ ...form, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) })} /></label>

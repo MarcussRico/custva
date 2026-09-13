@@ -238,6 +238,80 @@ campaignsRouter.put("/:id", async (req, res) => {
   return sendSuccess(req, res, updated.rows[0]);
 });
 
+/**
+ * Dry-run the audience before a campaign exists.
+ *
+ * `POST /:id/preview-audience` could only answer this *after* the campaign was
+ * created, so a merchant committed to an audience they had never seen and then
+ * checked. With behavioural segments now targetable, seeing who a rule actually
+ * matches is the point of the rule — "at risk" means nothing until you can see
+ * it is 12 people and not 400.
+ *
+ * Also reports the consent split, because "42 matched" and "42 will be
+ * messaged" are different numbers whenever some of them have no record.
+ */
+campaignsRouter.post("/preview-audience", async (req, res) => {
+  const schema = z.object({
+    audienceRules: audienceRulesSchema.default({}),
+    manualIncludeIds: z.array(z.string().uuid()).default([]),
+    manualExcludeIds: z.array(z.string().uuid()).default([])
+  });
+  const body = schema.parse(req.body);
+  const merchantId = req.auth!.merchantId;
+
+  /* Returns the offending ids rather than throwing — the same guard as POST /
+     and PUT /:id. A preview that quietly counted another merchant's customers
+     would be a disclosure, not a miscount. */
+  const foreign = await assertCustomersBelongToMerchant(merchantId, [
+    ...body.manualIncludeIds,
+    ...body.manualExcludeIds
+  ]);
+  if (foreign.length) {
+    return sendError(
+      req,
+      res,
+      "VALIDATION_ERROR",
+      `${foreign.length} customer id(s) do not belong to this merchant`,
+      422
+    );
+  }
+
+  const audience = await resolveAudience(
+    merchantId,
+    body.audienceRules,
+    body.manualIncludeIds,
+    body.manualExcludeIds
+  );
+
+  /* The audience query already excludes anyone withdrawn, so the split here is
+     between recorded consent and none — the number a merchant needs before
+     deciding whether this send is one they should make. */
+  const bySegment: Record<string, number> = {};
+  for (const person of audience) {
+    const key = person.segment ?? "unclassified";
+    bySegment[key] = (bySegment[key] ?? 0) + 1;
+  }
+
+  const consentSplit = audience.length
+    ? await query<{ granted: string; unknown: string }>(
+        `SELECT COUNT(*) FILTER (WHERE consent_state = 'granted')::text AS granted,
+                COUNT(*) FILTER (WHERE consent_state = 'unknown')::text AS unknown
+           FROM customers WHERE merchant_id = $1 AND id = ANY($2::uuid[])`,
+        [merchantId, audience.map((a) => a.id)]
+      )
+    : null;
+
+  return sendSuccess(req, res, {
+    count: audience.length,
+    bySegment,
+    consent: {
+      granted: Number(consentSplit?.rows[0]?.granted ?? 0),
+      unknown: Number(consentSplit?.rows[0]?.unknown ?? 0)
+    },
+    sample: audience.slice(0, 8)
+  });
+});
+
 campaignsRouter.post("/:id/preview-audience", async (req, res) => {
   const campaign = await query<{
     audience_rules: AudienceRules;

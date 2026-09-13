@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { MerchantShell } from "../components/MerchantShell";
 import { merchantApi } from "../lib/api";
 import { CampaignsClient } from "./CampaignsClient";
@@ -30,7 +31,10 @@ export default async function CampaignsPage() {
 
   return (
     <MerchantShell active="campaigns" shopName={shopName}>
-      <CampaignsClient campaigns={campaigns} templates={templates} />
+      {/* `useSearchParams` inside opts the tree into client rendering. */}
+      <Suspense fallback={<p className="merchant-muted">Loading campaigns…</p>}>
+        <CampaignsClient campaigns={campaigns} templates={templates} />
+      </Suspense>
     </MerchantShell>
   );
 }

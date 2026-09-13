@@ -143,7 +143,8 @@ export function buildAudienceQuery(
     );
   }
 
-  /* An explicit exclusion outranks an explicit include, so this is scope too. */
+  /* FR-I1 — the behavioural segments, from each customer's own rhythm rather
+     than the global thresholds the legacy `tags` above use. */
   if (rules.segments?.length) {
     conditions.push(`c.segment = ANY($${idx}::text[])`);
     params.push(rules.segments);
@@ -153,6 +154,8 @@ export function buildAudienceQuery(
     conditions.push(`c.expected_revisit_at IS NOT NULL AND c.expected_revisit_at <= NOW()`);
   }
 
+  /* An explicit exclusion outranks an explicit include, so this is scope, not
+     a rule — it sits outside the OR and nothing can re-admit these ids. */
   if (manualExcludeIds.length) {
     scope.push(`c.id != ALL($${idx}::uuid[])`);
     params.push(manualExcludeIds);
