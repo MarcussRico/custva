@@ -17,6 +17,16 @@ export interface GlobalTemplate {
   assignedCount?: number;
   isStarterPack: boolean;
   archivedAt: string | null;
+  /* Meta's own view. Distinct from the local approval flag, which has never
+     meant anything to Meta. */
+  metaTemplateName?: string | null;
+  metaStatus?: string | null;
+  metaRejectedReason?: string | null;
+  metaSubmittedAt?: string | null;
+  metaSyncedAt?: string | null;
+  headerImageHandle?: string | null;
+  /** Bytes stored here that Meta has not been given yet. */
+  hasPendingImage?: boolean;
 }
 
 export interface TemplateAssignment {

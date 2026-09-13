@@ -346,3 +346,86 @@ analyticsRouter.get("/export", async (req, res) => {
 
   return res.end();
 });
+
+/**
+ * The commission ledger — FR-M5, and the screen a merchant will actually
+ * argue with.
+ *
+ * "We charge only for returns we caused" is the commercial promise, so every
+ * charge has to be defensible line by line: who came back, what they spent,
+ * which message reached them, and when. A total with no rows behind it is not
+ * a bill anyone should pay.
+ */
+analyticsRouter.get("/commission", async (req, res) => {
+  const merchantId = req.auth!.merchantId;
+  const status = typeof req.query.status === "string" ? req.query.status : null;
+  const page = Math.max(1, Number(req.query.page ?? 1));
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit ?? 50)));
+
+  const where = ["ce.merchant_id = $1"];
+  const params: unknown[] = [merchantId];
+  if (status && ["pending", "invoiced", "paid", "waived"].includes(status)) {
+    where.push(`ce.status = $${params.length + 1}`);
+    params.push(status);
+  }
+  const clause = where.join(" AND ");
+
+  const items = await query(
+    `SELECT ce.id, ce.status,
+            ce.influenced_amount AS "influencedAmount",
+            ce.commission_rate AS "commissionRate",
+            ce.commission_amount AS "commissionAmount",
+            ce.created_at AS "createdAt",
+            c.id AS "customerId", c.name AS "customerName", c.mobile,
+            v.visit_at AS "visitAt",
+            /* The message that earned it. BR-5 wants the merchant to be able to
+               see why, not just how much. */
+            m.id AS "messageId",
+            m.created_at AS "messageSentAt",
+            camp.campaign_name AS "campaignName"
+       FROM commission_events ce
+       JOIN customers c ON c.id = ce.customer_id
+       JOIN customer_visits v ON v.id = ce.visit_id
+       LEFT JOIN messages m ON m.id = ce.attributed_message_id
+       LEFT JOIN campaigns camp ON camp.id = m.campaign_id
+      WHERE ${clause}
+      ORDER BY ce.created_at DESC
+      LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+    [...params, limit, (page - 1) * limit]
+  );
+
+  const totals = await query<{
+    status: string;
+    n: string;
+    amount: string;
+    influenced: string;
+  }>(
+    `SELECT status, COUNT(*)::text AS n,
+            COALESCE(SUM(commission_amount), 0)::text AS amount,
+            COALESCE(SUM(influenced_amount), 0)::text AS influenced
+       FROM commission_events WHERE merchant_id = $1 GROUP BY status`,
+    [merchantId]
+  );
+
+  const rate = await query<{ commission_rate: string }>(
+    `SELECT commission_rate FROM merchants WHERE id = $1`,
+    [merchantId]
+  );
+
+  const byStatus: Record<string, { count: number; amount: number; influenced: number }> = {};
+  for (const r of totals.rows) {
+    byStatus[r.status] = {
+      count: Number(r.n),
+      amount: Number(r.amount),
+      influenced: Number(r.influenced)
+    };
+  }
+
+  return sendSuccess(req, res, {
+    items: items.rows,
+    byStatus,
+    /* Stored per event as well, so a rate change never rewrites history — this
+       is only what a *new* event would be charged at. */
+    currentRate: Number(rate.rows[0]?.commission_rate ?? 0)
+  });
+});

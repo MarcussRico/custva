@@ -23,6 +23,13 @@ export interface TemplateRow {
   visit_group: string | null;
   lifecycle_day: string | null;
   header_image_url: string | null;
+  meta_template_name?: string | null;
+  meta_status?: string | null;
+  meta_category?: string | null;
+  meta_rejected_reason?: string | null;
+  meta_submitted_at?: string | null;
+  meta_synced_at?: string | null;
+  header_image_handle?: string | null;
 }
 
 export function mapTemplateRow(row: TemplateRow) {
@@ -47,7 +54,19 @@ export function mapTemplateRow(row: TemplateRow) {
     isStarterPack: row.is_starter_pack,
     visitGroup: row.visit_group,
     lifecycleDay: row.lifecycle_day,
-    headerImageUrl: row.header_image_url
+    headerImageUrl: row.header_image_url,
+    /* Meta's own view of this template — distinct from `approvalStatus`, which
+       is Custva's internal review flag and has never meant anything to Meta.
+       These were written by the Phase M routes from the start but never
+       returned, so the admin screen could not show whether a template was
+       actually registered. */
+    metaTemplateName: row.meta_template_name ?? null,
+    metaStatus: row.meta_status ?? null,
+    metaCategory: row.meta_category ?? null,
+    metaRejectedReason: row.meta_rejected_reason ?? null,
+    metaSubmittedAt: row.meta_submitted_at ?? null,
+    metaSyncedAt: row.meta_synced_at ?? null,
+    headerImageHandle: row.header_image_handle ?? null
   };
 }
 

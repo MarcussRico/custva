@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { CampaignResults } from "./CampaignResults";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 interface Campaign {
@@ -160,6 +161,10 @@ export function CampaignsClient({
 
   const [audience, setAudience] = useState<AudiencePreview | null>(null);
   const [audienceLoading, setAudienceLoading] = useState(false);
+  /* Results are opened per campaign rather than loaded for all of them: the
+     lift query is a range scan over visits per recipient, and most cards are
+     not being looked at. */
+  const [openResults, setOpenResults] = useState<string | null>(null);
   const [customerSearch, setCustomerSearch] = useState("");
   const [customerResults, setCustomerResults] = useState<CustomerOption[]>([]);
 
@@ -397,8 +402,16 @@ export function CampaignsClient({
                 <DispatchBreakdown dispatch={c.dispatch} />
                 <div className="merchant-form-actions">
                   <button type="button" className="merchant-btn merchant-btn--secondary" onClick={() => void previewAudience(c.id)}>Preview</button>
+                  <button
+                    type="button"
+                    className="merchant-btn merchant-btn--secondary"
+                    onClick={() => setOpenResults(openResults === c.id ? null : c.id)}
+                  >
+                    {openResults === c.id ? "Hide results" : "Did it work?"}
+                  </button>
                   <button type="button" className="merchant-btn merchant-btn--primary" disabled={loading} onClick={() => void sendCampaign(c.id)}>Send Now</button>
                 </div>
+                {openResults === c.id && <CampaignResults campaignId={c.id} />}
               </article>
             ))}
           </div>

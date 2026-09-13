@@ -1836,3 +1836,120 @@ a { color: inherit; text-decoration: none; }
     padding-right: 1.15rem;
   }
 }
+
+/* ─────────────────────────────────────────────────────
+   META REGISTRATION PANEL
+   The only place that says whether a template will actually be delivered.
+   `approval_status` elsewhere on the page is Custva's own review flag and has
+   never meant anything to Meta — the panel's whole job is to keep those two
+   facts visibly separate.
+───────────────────────────────────────────────────── */
+.meta-panel {
+  margin: 1.25rem 0;
+  padding: 1rem 1.1rem;
+  background: var(--admin-surface-2);
+  border: 1px solid var(--admin-gold-border);
+  border-radius: var(--radius-md);
+}
+
+.meta-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 0.4rem;
+}
+
+/* The admin shell's default heading colour is the brand navy, which on this
+   near-black surface is all but invisible. Stated explicitly rather than
+   inherited. */
+.meta-panel-head h3 {
+  font-size: 1rem;
+  margin: 0;
+  color: var(--custva-white);
+}
+
+.meta-pill {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+/* Green is the only state that means a message will actually arrive. Amber is
+   "not yet", red is "not going to". Nothing else earns a colour. */
+.meta-pill--ok   { color: #7ee2b8; background: rgba(11, 125, 77, 0.22); }
+.meta-pill--wait { color: #ffd400; background: rgba(255, 212, 0, 0.14); }
+.meta-pill--bad  { color: #ff9b86; background: rgba(214, 59, 26, 0.2); }
+.meta-pill--none { color: var(--admin-muted); background: rgba(255, 255, 255, 0.06); }
+
+.meta-panel-note {
+  margin: 0 0 0.8rem;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--admin-muted);
+  max-width: 62ch;
+}
+
+.meta-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.7rem;
+  margin: 0 0 0.85rem;
+}
+
+.meta-facts dt {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--admin-muted);
+  margin-bottom: 0.15rem;
+}
+
+.meta-facts dd {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--admin-soft);
+  word-break: break-word;
+}
+
+.meta-reject {
+  margin: 0 0 0.85rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: rgba(214, 59, 26, 0.15);
+  border: 1px solid rgba(255, 155, 134, 0.3);
+  font-size: 0.82rem;
+  color: #ff9b86;
+}
+
+.meta-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.meta-hint {
+  margin: 0.7rem 0 0;
+  font-size: 0.75rem;
+  color: var(--admin-muted);
+}
+
+.meta-problems {
+  margin: 0.8rem 0 0;
+  padding: 0.6rem 0.75rem 0.6rem 1.6rem;
+  border-radius: var(--radius-sm);
+  background: rgba(214, 59, 26, 0.12);
+  border: 1px solid rgba(255, 155, 134, 0.25);
+  font-size: 0.82rem;
+  color: #ffb9a8;
+  list-style: disc;
+}
+.meta-problems li { margin: 0.15rem 0; }
+
+.meta-ok {
+  margin: 0.8rem 0 0;
+  font-size: 0.82rem;
+  color: #7ee2b8;
+}
+
+.meta-pending { color: var(--admin-gold); }

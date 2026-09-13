@@ -1822,3 +1822,111 @@ ul { list-style: none; }
   .merchant-btn { transition: none; }
   .merchant-btn:hover:not(:disabled) { transform: none; }
 }
+
+/* ─────────────────────────────────────────────────────
+   CAMPAIGN RESULTS — did it actually work?
+   Both arms shown with their raw counts, because this is the number a merchant
+   is invited to disbelieve. A single headline percentage would be easier to
+   read and impossible to check.
+───────────────────────────────────────────────────── */
+.merchant-lift {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--gray-200);
+}
+
+.merchant-lift-arms {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 0.7rem;
+}
+
+.merchant-lift-arm {
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--r-sm);
+  background: #fff;
+}
+
+/* The held-back arm reads as the control it is, not as a second result. */
+.merchant-lift-arm--held {
+  background: var(--gray-50);
+  border-style: dashed;
+}
+
+.merchant-lift-arm span {
+  display: block;
+  font-family: var(--font-dm-mono), ui-monospace, monospace;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gray-500);
+}
+
+.merchant-lift-arm strong {
+  display: block;
+  font-family: var(--font-dm-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.4rem;
+  color: var(--custva-dark-blue);
+  margin: 0.1rem 0;
+}
+
+.merchant-lift-arm small {
+  display: block;
+  font-size: 0.74rem;
+  color: var(--gray-500);
+}
+
+/* Deliberately not green-on-success. The verdict is often "unproven", and
+   styling it as a result would undercut the caution it is carrying. */
+.merchant-lift-verdict {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--r-sm);
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  color: var(--gray-700);
+}
+
+.merchant-lift-verdict--confident {
+  background: #eef7f2;
+  border-color: #cfe8dc;
+  color: #0b7d4d;
+  font-weight: 600;
+}
+
+.merchant-lift-foot {
+  margin: 0.45rem 0 0;
+  font-size: 0.74rem;
+  color: var(--gray-500);
+}
+
+/* ─── Commission ────────────────────────────────────── */
+.merchant-commission-basis p {
+  margin: 0 0 0.4rem;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  max-width: 70ch;
+}
+.merchant-commission-basis p:last-child { margin-bottom: 0; font-size: 0.82rem; }
+
+.commission-pending  { color: #8a6600; background: #fdf3d8; }
+.commission-invoiced { color: #334155; background: #e8edf3; }
+.commission-paid     { color: #0b7d4d; background: #e3f3ec; }
+.commission-waived   { color: var(--gray-500); background: var(--gray-100); }
+
+/* A select that sits in a panel header rather than in the filter bar, so it
+   inherits none of the filter styling. */
+.merchant-inline-select {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--r-sm);
+  background: #fff;
+  font-family: inherit;
+  font-size: 0.85rem;
+  color: var(--gray-900);
+}

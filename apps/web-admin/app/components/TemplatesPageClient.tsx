@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AssignTemplateModal } from "./AssignTemplateModal";
 import { PushUpdatesModal } from "./PushUpdatesModal";
 import { TemplateFormModal } from "./TemplateFormModal";
+import { MetaTemplatePanel } from "./MetaTemplatePanel";
 import type { GlobalTemplate, TemplateAssignment } from "./template-types";
 
 export function TemplatesPageClient() {
@@ -207,6 +208,15 @@ export function TemplatesPageClient() {
             <p>{detail.body}</p>
             {detail.footerText && <small>{detail.footerText}</small>}
           </div>
+          {/* Placed above assignments: whether Meta will actually deliver this
+              template outranks how many merchants hold a copy of it. */}
+          <MetaTemplatePanel
+            template={detail}
+            /* `detail` is derived from the list by id, so reloading the list
+               is what refreshes this panel. */
+            onChanged={() => void load()}
+          />
+
           <h3 className="template-detail-subhead">Assignments & version drift</h3>
           {assignments.length === 0 ? (
             <p className="dash-empty">Not assigned to any merchants yet.</p>

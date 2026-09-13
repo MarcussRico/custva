@@ -8,7 +8,7 @@ session; do not let it drift.
 |---|---|
 | **Last updated** | 2026-09-11 |
 | **Current phase** | **All phases complete (0, A, B, C, M, D, E).** The SRS is built, plus holdout measurement. Surfacing it in the product: customers list and dashboard done, 6 screens to go (§4b) |
-| **Next action** | Get Meta credentials, then flip `CONSENT.allowUnknown` to false (§4c). Then the admin template screen — templates cannot reach Meta any other way |
+| **Next action** | Get Meta credentials. Everything else is built: submit the templates from the admin screen (§4h), then flip `CONSENT.allowUnknown` to false (§4c) |
 | **Defects** | All 13 from the 8 Sep review are closed (§4c, §4e, §4f) |
 | **Blocking** | No write access to `Madan94/custva`. Work is on a fork, open as [PR #1](https://github.com/Madan94/custva/pull/1) |
 | **Decision needed** | Shared vs per-merchant WhatsApp number (§6). Blocks SRS schema work |
@@ -596,11 +596,11 @@ sending behaviour invisibly and sees none of the intelligence behind it.
 | Segment + expected revisit on customers | ✅ **Done** — see below |
 | Who is overdue, on the dashboard | ✅ **Done** — see below |
 | Segment / overdue audience filters on campaigns | ✅ **Done** — see §4d |
-| Organic vs influenced revenue | Partly — one dashboard tile |
-| Commission ledger | ❌ no screen |
-| `GET /campaigns/:id/lift` | ❌ nothing calls it |
-| Holdout counts per campaign | ❌ |
-| Submit template to Meta / sync / upload image | ❌ API only |
+| Organic vs influenced revenue | ✅ dashboard tile + the commission screen behind it |
+| Commission ledger | ✅ **Done** — see §4h |
+| `GET /campaigns/:id/lift` | ✅ **Done** — see §4h |
+| Holdout counts per campaign | ✅ **Done** — both arms, on the campaign card |
+| Submit template to Meta / sync / upload image | ✅ **Done** — see §4h |
 
 ### Customers list — done 2026-09-13
 
@@ -1058,6 +1058,95 @@ tilt, used once rather than scattered, and disabled under
 
 Login through dashboard is now one continuous system. The landing page itself is
 untouched.
+
+---
+
+## 4h. The last five screens — done 2026-09-13
+
+Everything in §4b is now surfaced. Three of these were **UI only**: the Meta
+submission, sync and header-image routes had existed since Phase M and nothing
+called them. Worth saying plainly, because it was nearly rebuilt from scratch
+before checking.
+
+### Meta registration (admin)
+
+A panel on each global template, placed above assignments — whether Meta will
+deliver a template outranks how many merchants hold a copy of it.
+
+Its whole job is to keep two facts apart. `approval_status` is Custva's own
+review flag and has never meant anything to Meta; a template marked approved
+here is still refused at send time because Meta has never seen it. The panel
+states that in as many words and shows Meta's status separately.
+
+`mapTemplateRow` never returned the meta columns, so the admin UI could not have
+shown any of this regardless. Added.
+
+Also carried: `meta_synced_at` on screen, because Meta does not call back when a
+review finishes and the stored status is only a snapshot of whenever it was last
+asked. And the submit button now keys off `meta_submitted_at` rather than
+`meta_template_name` — the latter is backfilled for every template by migration
+`0019`, so it labelled a never-submitted template "Resubmit".
+
+### Header image upload
+
+Through the real file input, bytes sent raw with the true content type. The API
+identifies the file from its bytes rather than the header, and a PDF labelled
+`image/png` is refused with a sentence a person can act on. A square image is
+*warned* about — WhatsApp crops rather than refuses, and a merchant may prefer
+their own framing.
+
+**Changed while testing it:** an upload with no Meta credentials used to return
+503 and throw the bytes away. Somebody's photo, lost because an environment
+variable was missing, to be found and uploaded again later. It is now stored
+either way and the panel distinguishes *"Meta has it"* from *"Saved — Meta does
+not have it yet"*. Showing "none" after a successful upload is true of Meta and
+false of us.
+
+### Commission (merchant)
+
+`GET /analytics/commission`, and a screen built to be argued with. "We charge
+only for returns we caused" is the commercial promise, so every charge names the
+customer, the visit, what they actually spent, and the message that reached them
+first. A total with no rows behind it is not a bill anyone should pay.
+
+The basis is stated above the number rather than below it, and the rate is shown
+per charge as well as currently — each event stores the rate it was made at, so
+changing the rate never rewrites history.
+
+### Lift and holdout (merchant)
+
+"Did it work?" on each campaign card, loading on demand because the lift query is
+a range scan over visits per recipient and most cards are never opened.
+
+Both arms are shown with raw counts, because this is the number a merchant is
+invited to disbelieve; a single headline percentage would be easier to read and
+impossible to check. On the seeded campaign that reads:
+
+```
+Messaged                  100%   5 of 5 came back
+Deliberately not messaged  67%   2 of 3 came back anyway
+
+Too few customers to measure lift yet (5 messaged, 3 held out;
+30 in each is the minimum). Keep running campaigns and this will fill in.
+```
+
+100% against 67% looks like a triumph and the verdict refuses to call it one.
+That refusal is the point, and it is rendered verbatim from the shared holdout
+module rather than reworded in the UI, so the caution cannot be lost on the way
+to the screen.
+
+### A bug found by driving the real endpoints
+
+`writeAudit` took the JWT subject straight into a foreign key, and it runs
+*after* the work is committed. A token outliving its user row therefore returned
+a 500 for an action that had already succeeded — no audit record and a
+misleading error. The insert now resolves an unknown id to NULL, which the
+column already allowed, and an audit failure is logged rather than raised.
+Recording who did something matters; it does not matter more than telling the
+caller the truth about what happened.
+
+Same shape as the consent bug in §4c. Both were only reachable by calling the
+endpoint for real.
 
 ---
 

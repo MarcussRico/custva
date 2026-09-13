@@ -195,6 +195,12 @@ adminTemplatesRouter.get("/", async (req, res) => {
 
   const items = await query(
     `SELECT t.*,
+            /* An image can be stored here without Meta having it yet — the
+               upload keeps the bytes when credentials are missing. Without
+               this the panel showed "no image" straight after a successful
+               upload, which is true of Meta and false of us. */
+            EXISTS (SELECT 1 FROM template_media tm
+                     WHERE tm.template_id = t.id AND tm.meta_handle IS NULL) AS "hasPendingImage",
             (SELECT COUNT(*)::int FROM templates c
              WHERE c.source_template_id = t.id AND c.archived_at IS NULL) AS "assignedCount"
      FROM templates t
@@ -207,6 +213,7 @@ adminTemplatesRouter.get("/", async (req, res) => {
   return sendSuccess(req, res, {
     items: items.rows.map((row) => ({
       ...mapTemplateRow(row as TemplateRow),
+      hasPendingImage: Boolean((row as { hasPendingImage?: boolean }).hasPendingImage),
       assignedCount: Number((row as { assignedCount: number }).assignedCount ?? 0)
     })),
     page,
@@ -466,17 +473,20 @@ adminTemplatesRouter.post(
     let handle = existing.rows[0]?.meta_handle ?? null;
     let reused = Boolean(handle);
 
+    /* Whether Meta actually took the bytes. The image is stored either way —
+       see below — so this is what separates "we have it" from "Meta has it". */
+    let pendingUpload = false;
+
     if (!handle) {
       const adapter = templateAdmin();
-      if (!adapter) {
-        return sendError(
-          req,
-          res,
-          "PROVIDER_ERROR",
-          "WA_ACCESS_TOKEN, WA_BUSINESS_ACCOUNT_ID and WA_APP_ID must be configured to upload header images",
-          503
-        );
-      }
+      if (!adapter || !process.env.WA_APP_ID) {
+        /* Deliberately not a hard failure any more. The bytes are somebody's
+           work: refusing the whole request because a credential is missing
+           threw the image away and made them find and upload it again once
+           Meta was configured. Stored now, handed to Meta on the next upload
+           or submission. */
+        pendingUpload = true;
+      } else {
       try {
         const uploaded = await adapter.uploadHeaderImage({
           bytes,
@@ -494,6 +504,7 @@ adminTemplatesRouter.post(
           502
         );
       }
+      }
     }
 
     const media = await query<{ id: string }>(
@@ -501,7 +512,8 @@ adminTemplatesRouter.post(
          merchant_id, template_id, mime_type, byte_size, width, height,
          checksum, data, meta_handle, meta_uploaded_at
        )
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,
+               CASE WHEN $9::text IS NULL THEN NULL ELSE NOW() END)
        RETURNING id`,
       [
         merchantId,
@@ -516,7 +528,9 @@ adminTemplatesRouter.post(
       ]
     );
 
-    /* The handle is what template submission reads (see 0018). */
+    /* The handle is what template submission reads (see 0018). Clearing
+       meta_status is deliberate: the template Meta approved no longer matches
+       the one we hold, so it must be resubmitted before it can be sent. */
     await query(
       `UPDATE templates
           SET header_image_handle = $1, meta_status = NULL, updated_at = NOW()
@@ -530,10 +544,11 @@ adminTemplatesRouter.post(
       "template",
       req.params.id,
       null,
-      { mediaId: media.rows[0].id, width: info.width, height: info.height, reused }
+      { mediaId: media.rows[0].id, width: info.width, height: info.height, reused, pendingUpload }
     );
 
     return sendSuccess(req, res, {
+      pendingUpload,
       mediaId: media.rows[0].id,
       width: info.width,
       height: info.height,
@@ -543,7 +558,9 @@ adminTemplatesRouter.post(
       /* Non-blocking notes, e.g. that WhatsApp will crop this aspect. */
       warnings: problems.map((p) => p.message),
       /* Changing the image invalidates any prior Meta approval. */
-      note: "Header image set. The template must be resubmitted to Meta for approval."
+      note: pendingUpload
+        ? "Image saved, but Meta has not received it yet — WA_ACCESS_TOKEN, WA_BUSINESS_ACCOUNT_ID and WA_APP_ID are not configured. It will be sent on the next upload once they are."
+        : "Header image set. The template must be resubmitted to Meta for approval."
     });
   }
 );
