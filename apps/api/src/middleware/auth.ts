@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import jwt from "jsonwebtoken";
 import type { Request, Response, NextFunction } from "express";
 import { sendError } from "../lib/api-response.js";
@@ -9,15 +10,37 @@ interface JwtPayload {
   role: "merchant_admin" | "merchant_staff" | "platform_admin";
 }
 
+/** Length-safe and non-short-circuiting, so a wrong id leaks nothing by timing. */
+function constantTimeEquals(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+}
+
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
-  // Dev-only bypass. Never enabled when NODE_ENV=production.
+  /* Dev-only bypass. Never enabled when NODE_ENV=production.
+     
+     Defect 11: this used to check only that CUSTVA_DEV_MERCHANT_ID was *set*,
+     then trust whatever merchant id the caller put in the header. Setting the
+     variable to any value turned `x-dev-merchant-id` into "log in as anyone" —
+     on a shared staging box, one curl reads every merchant's customers.
+     
+     The header must now equal the configured value, compared in constant time.
+     The bypass grants access to exactly one merchant: the one the operator
+     configured. */
   if (!isProduction) {
     const devMerchantId = req.headers["x-dev-merchant-id"];
     const devRole = req.headers["x-dev-role"];
-    if (typeof devMerchantId === "string" && process.env.CUSTVA_DEV_MERCHANT_ID) {
+    const configured = process.env.CUSTVA_DEV_MERCHANT_ID;
+    if (
+      typeof devMerchantId === "string" &&
+      configured &&
+      constantTimeEquals(devMerchantId, configured)
+    ) {
       req.auth = {
         userId: "dev-user",
-        merchantId: devMerchantId,
+        merchantId: configured,
         role:
           devRole === "platform_admin" || devRole === "merchant_staff"
             ? devRole

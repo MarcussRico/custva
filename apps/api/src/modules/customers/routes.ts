@@ -7,7 +7,11 @@ import { recomputeSegmentForCustomer } from "../../lib/segmentation-service.js";
 import { attributeVisit } from "../../lib/attribution-service.js";
 import { sendError, sendSuccess } from "../../lib/api-response.js";
 import { normalizeIndiaMobile, isValidIndiaMobile } from "../../lib/mobile.js";
-import { buildCustomerListQuery, customerListFilterSchema } from "../../lib/audience-engine.js";
+import {
+  buildCustomerListQuery,
+  customerListFilterSchema,
+  effectiveAgeSql
+} from "../../lib/audience-engine.js";
 import { autoTagsSql } from "../../lib/customer-tags.js";
 import { projectVisitMetrics } from "../../lib/metrics-projection.js";
 import {
@@ -22,6 +26,9 @@ const createCustomerSchema = z.object({
   billingAmount: z.number().nonnegative(),
   pincode: z.string().regex(/^\d{6}$/).optional().or(z.literal("")),
   age: z.number().int().min(1).max(120).optional(),
+  /* Defect 10 — a real birthday, so a birthday campaign can reach the right
+     people. Optional and never guessed: unknown must stay unknown. */
+  dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   notes: z.string().optional(),
   visitDate: z.string().datetime().optional(),
   /* Consent captured at the counter, at the one moment the customer is
@@ -42,6 +49,8 @@ const createCustomerSchema = z.object({
 
 const CUSTOMER_SELECT = `
   id, merchant_id AS "merchantId", name, mobile, pincode, age, location, notes,
+  date_of_birth AS "dateOfBirth",
+  ${effectiveAgeSql("customers")} AS "effectiveAge",
   total_spend AS "totalSpend", total_visits AS "totalVisits", last_visit AS "lastVisit",
   whatsapp_opt_in AS "whatsappOptIn",
   consent_state AS "consentState", consent_updated_at AS "consentUpdatedAt",
@@ -126,8 +135,8 @@ customersRouter.post("/", async (req, res) => {
       const inserted = await client.query<{ id: string }>(
         `INSERT INTO customers (
            merchant_id, name, mobile, pincode, age, location, notes,
-           total_spend, total_visits, last_visit, whatsapp_opt_in
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,1,$9,TRUE)
+           total_spend, total_visits, last_visit, whatsapp_opt_in, date_of_birth
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,1,$9,TRUE,$10)
          RETURNING id`,
         [
           merchantId,
@@ -138,7 +147,8 @@ customersRouter.post("/", async (req, res) => {
           pincode ?? "",
           body.notes ?? null,
           body.billingAmount,
-          visitDate
+          visitDate,
+          body.dateOfBirth ?? null
         ]
       );
       customerId = inserted.rows[0].id;
@@ -148,12 +158,13 @@ customersRouter.post("/", async (req, res) => {
            name = $1,
            pincode = COALESCE($2, pincode),
            age = COALESCE($3, age),
+           date_of_birth = COALESCE($8, date_of_birth),
            total_spend = total_spend + $4,
            total_visits = total_visits + 1,
            last_visit = $5,
            updated_at = NOW()
          WHERE id = $6 AND merchant_id = $7`,
-        [body.name, pincode, body.age ?? null, body.billingAmount, visitDate, customerId, merchantId]
+        [body.name, pincode, body.age ?? null, body.billingAmount, visitDate, customerId, merchantId, body.dateOfBirth ?? null]
       );
     }
 
@@ -364,6 +375,7 @@ customersRouter.put("/:id", async (req, res) => {
     name: z.string().min(2).optional(),
     pincode: z.string().regex(/^\d{6}$/).optional(),
     age: z.number().int().min(1).max(120).optional(),
+    dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     notes: z.string().optional()
   });
   const patch = updateSchema.parse(req.body);
@@ -380,9 +392,10 @@ customersRouter.put("/:id", async (req, res) => {
        pincode = COALESCE($2, pincode),
        age = COALESCE($3, age),
        notes = COALESCE($4, notes),
+       date_of_birth = COALESCE($7, date_of_birth),
        updated_at = NOW()
      WHERE id = $5 AND merchant_id = $6`,
-    [patch.name ?? null, patch.pincode ?? null, patch.age ?? null, patch.notes ?? null, req.params.id, req.auth!.merchantId]
+    [patch.name ?? null, patch.pincode ?? null, patch.age ?? null, patch.notes ?? null, req.params.id, req.auth!.merchantId, patch.dateOfBirth ?? null]
   );
   const updated = await query(
     `SELECT ${CUSTOMER_SELECT}, ${autoTagsSql("customers")} AS "autoTags" FROM customers WHERE id = $1`,

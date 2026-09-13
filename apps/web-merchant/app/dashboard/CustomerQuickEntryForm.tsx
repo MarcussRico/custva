@@ -24,6 +24,9 @@ export function CustomerQuickEntryForm({
   const [billingAmount, setBillingAmount] = useState("");
   const [pincode, setPincode] = useState("");
   const [age, setAge] = useState("");
+  /* A real birthday, so birthday campaigns reach the right people. The age
+     field beside it stays for the customers who will only give that. */
+  const [dob, setDob] = useState("");
   const [lookupResults, setLookupResults] = useState<LookupCustomer[]>([]);
   const [selected, setSelected] = useState<LookupCustomer | null>(null);
   const [consentGiven, setConsentGiven] = useState(false);
@@ -89,6 +92,7 @@ export function CustomerQuickEntryForm({
     setBillingAmount("");
     setPincode("");
     setAge("");
+    setDob("");
     setSelected(null);
     setLookupResults([]);
     setConsentGiven(false);
@@ -107,6 +111,7 @@ export function CustomerQuickEntryForm({
       };
       if (pincode.trim()) payload.pincode = pincode.trim();
       if (age.trim()) payload.age = Number(age);
+      if (dob) payload.dateOfBirth = dob;
       /* Sent only when the box was actually ticked. An unticked box is not a
          refusal, it is silence — and silence has to stay silence, or the
          ledger fills up with consent nobody gave. */
@@ -213,6 +218,22 @@ export function CustomerQuickEntryForm({
               onChange={(e) => setAge(e.target.value)}
             />
           </label>
+        </div>
+        <div className="merchant-quick-row">
+          <label>
+            Birthday (optional)
+            <input
+              name="custva-dob"
+              type="date"
+              max={new Date().toISOString().slice(0, 10)}
+              autoComplete="off"
+              data-1p-ignore
+              data-lpignore="true"
+              value={dob}
+              onChange={(e) => setDob(e.target.value)}
+            />
+          </label>
+          <span />
         </div>
 
         {phoneDigits.length >= 1 && !selected && lookupResults.length > 0 && (

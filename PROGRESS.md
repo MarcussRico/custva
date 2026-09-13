@@ -9,6 +9,7 @@ session; do not let it drift.
 | **Last updated** | 2026-09-11 |
 | **Current phase** | **All phases complete (0, A, B, C, M, D, E).** The SRS is built, plus holdout measurement. Surfacing it in the product: customers list and dashboard done, 6 screens to go (§4b) |
 | **Next action** | Get Meta credentials, then flip `CONSENT.allowUnknown` to false (§4c). Then the admin template screen — templates cannot reach Meta any other way |
+| **Defects** | All 13 from the 8 Sep review are closed (§4c, §4e, §4f) |
 | **Blocking** | No write access to `Madan94/custva`. Work is on a fork, open as [PR #1](https://github.com/Madan94/custva/pull/1) |
 | **Decision needed** | Shared vs per-merchant WhatsApp number (§6). Blocks SRS schema work |
 
@@ -165,10 +166,10 @@ whole API process down.
 
 | # | Defect |
 |---|---|
-| 8 | Send quotas model a daily cap, not Meta's actual rolling-24h unique-recipient tier; no pacing (concurrency 10, batch drains as fast as it can) |
-| 9 | `analytics_projection_queue` is dead code that double-increments the same delivery counters the webhook already writes. Harmless until someone wires it up |
-| 10 | The "birthday month" filter is `EXTRACT(MONTH FROM c.created_at)` — the signup month. There is no date-of-birth column, only a static `age` that goes stale yearly |
-| 11 | Dev auth bypass checks only that `CUSTVA_DEV_MERCHANT_ID` is *set*, never that the header equals it. On any shared staging box, `x-dev-merchant-id` impersonates any merchant |
+| 8 | ✅ **Fixed 2026-09-13 — §4f.** Send quotas model a daily cap, not Meta's actual rolling-24h unique-recipient tier; no pacing (concurrency 10, batch drains as fast as it can) |
+| 9 | ✅ **Fixed 2026-09-13 — §4f.** `analytics_projection_queue` is dead code that double-increments the same delivery counters the webhook already writes. Harmless until someone wires it up |
+| 10 | ✅ **Fixed 2026-09-13 — §4f.** The "birthday month" filter is `EXTRACT(MONTH FROM c.created_at)` — the signup month. There is no date-of-birth column, only a static `age` that goes stale yearly |
+| 11 | ✅ **Fixed 2026-09-13 — §4f.** Dev auth bypass checks only that `CUSTVA_DEV_MERCHANT_ID` is *set*, never that the header equals it. On any shared staging box, `x-dev-merchant-id` impersonates any merchant |
 | 12 | Zero test files. `pnpm test` passes vacuously, so CI reports green — worse than no CI, because it looks like coverage. **Fixed** — 6 real tests now run under `pnpm -r test` |
 | 13 | **`pnpm db:migrate` had never worked.** `scripts/run-migrations.mjs` is plain JavaScript but contained two TypeScript generics (`client.query<{ filename: string }>`), which parse as a comparison and throw `ReferenceError: string is not defined` before a single migration is applied. Step 6 of the HANDOVER runbook failed for anyone who tried it. Not in the 8 Sep review — found while running it. **Fixed** |
 
@@ -898,6 +899,106 @@ so this could be exercised without booting the worker's Redis queues.
 The campaign card now reads `3 sent · 1 skipped · 1 failed`, because "Sent: 3 of
 5" is a number with no explanation attached until you can see that one of them
 asked to stop.
+
+---
+
+## 4f. The remaining defects — done 2026-09-13 (8, 9, 10, 11)
+
+All thirteen defects from the 8 Sep review are now closed.
+
+### 11 — the dev auth bypass impersonated anyone
+
+`requireAuth` checked only that `CUSTVA_DEV_MERCHANT_ID` was *set*, then trusted
+whatever merchant id the caller put in `x-dev-merchant-id`. Setting the variable
+to any value turned the header into "log in as anyone" — on a shared staging
+box, one curl reads every merchant's customers.
+
+The header must now equal the configured value, compared with `timingSafeEqual`,
+and the session is pinned to the configured id rather than the supplied one.
+Verified by trying it:
+
+```
+x-dev-merchant-id: ...0010  (the configured one)  → 200
+x-dev-merchant-id: ...0001  (another merchant)    → 401
+x-dev-merchant-id: an arbitrary uuid              → 401
+```
+
+### 9 — a dead queue that would have double-counted
+
+Nothing ever enqueued to `analytics_projection_queue`. Had anyone wired it up it
+would have incremented `messages_delivered` and `messages_read` a second time,
+on top of the webhook that already writes them — and those inflated numbers are
+what the dashboard reports and what commission is computed from.
+
+Deleted, queue and worker both. A queue with no producer and a double-counting
+consumer is not a feature waiting to be finished; it is a loaded gun for
+whoever next goes looking for "the analytics pipeline". The webhook is the
+single writer, gated on first-sight since `0013`.
+
+### 10 — the birthday filter was the signup month
+
+`EXTRACT(MONTH FROM c.created_at)`. There was no date of birth in the schema at
+all — only a static `age` typed once at the counter, wrong from that person's
+next birthday onward.
+
+On the seeded merchant every customer signed up in September, so:
+
+```
+old predicate, birthdayMonth = 9  → 8 of 8 customers
+new predicate, birthdayMonth = 9  → 0
+new predicate, birthdayMonth = 3  → Priya Nair   (born 17 Mar)
+new predicate, birthdayMonth = 11 → Meera Krishnan (born 2 Nov)
+```
+
+Eight versus zero. It returned a plausible number of plausible-looking people,
+which is exactly why it survived a review.
+
+Migration `0025` adds `date_of_birth`, nullable and never inferred — a customer
+whose birthday is unknown matches no birthday campaign, which is the correct
+answer to "whose birthday is it" when you do not know. Age is now derived from
+it where present (`effectiveAgeSql`), so an under-25 campaign stops quietly
+growing to include 27-year-olds; the typed `age` remains the fallback. Capture
+added to the counter form as an optional Birthday field, because a column
+nobody can fill is not a fix.
+
+### 8 — the send quota was the wrong shape entirely
+
+Meta rate-limits by **unique recipients started in a rolling 24 hours**, on a
+tier: 250 / 1k / 10k / 100k / unlimited. Custva counted *messages* against a
+fixed 500 that resets at local midnight. Three separate mismatches:
+
+1. Messages, not unique recipients — two messages to one person consume one of
+   Meta's slots and two of Custva's.
+2. Calendar day, not rolling — 499 sends at 23:50 and 499 more at 00:10 pass
+   Custva's check and blow straight through Meta's window.
+3. A number we invented, with no relationship to the tier the number is actually
+   on: simultaneously too strict for a scaled merchant and no protection at all
+   for a new one.
+
+Migration `0026` stores `wa_messaging_tier` per merchant (default 250, where
+every new number starts). `withinMetaMessagingTier` counts distinct recipients
+in the rolling window from `messages` — what actually went out — rather than a
+counter that can drift from it. A customer already messaged inside the window
+is free: that is an existing conversation, not a new one, which is why this
+cannot be a simple increment. Demonstrated at a simulated tier of 3:
+
+```
+new recipient 1: used 0/3 → SEND
+new recipient 2: used 1/3 → SEND
+new recipient 3: used 2/3 → SEND
+new recipient 4: used 3/3 → BLOCKED
+new recipient 5: used 3/3 → BLOCKED
+re-messaging recipient 1 (already in window) → SEND, costs no new slot
+after 25h have passed: used 0/3 → SEND, the window rolled
+```
+
+**Pacing**, the second half. `concurrency: 10` with no limiter meant up to ten
+simultaneous bursts of a hundred recipients — the opposite of pacing, and a
+sudden spike from a number that normally sends a trickle is exactly the pattern
+that moves a quality rating. The campaign worker is now `concurrency: 1` with a
+10/second limiter (`WA_SENDS_PER_SECOND`); that still clears a 1,000-recipient
+campaign in under two minutes. Worth stating plainly: a BullMQ limiter is
+per-process, so running several workers multiplies the rate.
 
 ---
 

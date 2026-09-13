@@ -29,6 +29,24 @@ if (!process.env.REDIS_URL && isProd) {
   throw new Error("REDIS_URL is required in production");
 }
 
+/**
+ * Defect 8, second half — pacing.
+ *
+ * With `concurrency: 10` and no limiter, a batch drains as fast as Postgres and
+ * the network allow. Meta throttles a burst rather than queueing it, and a
+ * sudden spike from a number that normally sends a trickle is exactly the
+ * pattern that moves a quality rating. Ten per second is well inside Meta's
+ * throughput and still clears a 1,000-recipient campaign in under two minutes.
+ *
+ * A BullMQ limiter is per worker process, so this is the per-process rate;
+ * running several workers multiplies it, which is a deployment decision worth
+ * being explicit about.
+ */
+const SEND_LIMITER = {
+  max: Number(process.env.WA_SENDS_PER_SECOND ?? 10),
+  duration: 1000
+};
+
 const MERCHANT_DAILY_CAP = Number(process.env.WA_MERCHANT_DAILY_CAP ?? 500);
 const PLATFORM_DAILY_CAP = Number(process.env.WA_PLATFORM_DAILY_CAP ?? 100000);
 
@@ -59,10 +77,19 @@ export const campaignDispatchQueue = new Queue("campaign_dispatch_queue", {
   defaultJobOptions
 });
 
-export const analyticsProjectionQueue = new Queue("analytics_projection_queue", {
-  connection: redisConnection,
-  defaultJobOptions
-});
+/* Defect 9 — `analytics_projection_queue` and its worker are gone.
+   
+   Nothing ever enqueued to it. Had anyone wired it up, it would have
+   incremented `daily_merchant_metrics.messages_delivered` and `messages_read`
+   a second time, on top of the webhook handler that already writes them — and
+   those inflated numbers are what the merchant dashboard reports and what
+   commission is computed from.
+   
+   Deleted rather than fixed. A queue with no producer and a double-counting
+   consumer is not a feature waiting to be finished; it is a loaded gun for
+   whoever next goes looking for "the analytics pipeline". The webhook is the
+   single writer for those counters, gated on first-sight since migration
+   0013. */
 
 export const lifecycleDispatchQueue = new Queue("lifecycle_dispatch_queue", {
   connection: redisConnection,
@@ -80,6 +107,52 @@ function extractBodyVariables(
     if (key === "shop_name") return vars.shopName;
     return "";
   });
+}
+
+/**
+ * Defect 8 — Meta's real limit, checked before the invented one.
+ *
+ * Meta rate-limits by **unique recipients started in a rolling 24 hours**, on a
+ * tier (250 / 1k / 10k / 100k / unlimited). The daily cap below counts messages
+ * against a fixed number that resets at local midnight, so 499 sends at 23:50
+ * and 499 more at 00:10 pass Custva's check and blow straight through Meta's
+ * window.
+ *
+ * Counted from `messages` — what actually went out — rather than a counter that
+ * can drift from it. A customer already messaged inside the window is free:
+ * they are an existing conversation, not a new one, so re-messaging them costs
+ * no slot. That is why this cannot be a simple increment.
+ *
+ * Returns false when this send would start a conversation beyond the tier.
+ */
+async function withinMetaMessagingTier(
+  client: PoolClient,
+  merchantId: string,
+  customerId: string
+): Promise<boolean> {
+  const row = await client.query<{ tier: number; used: string; already: boolean }>(
+    `SELECT m.wa_messaging_tier AS tier,
+            (SELECT COUNT(DISTINCT customer_id) FROM messages
+              WHERE merchant_id = $1 AND created_at >= NOW() - INTERVAL '24 hours')::text AS used,
+            EXISTS (SELECT 1 FROM messages
+                     WHERE merchant_id = $1 AND customer_id = $2
+                       AND created_at >= NOW() - INTERVAL '24 hours') AS already
+       FROM merchants m WHERE m.id = $1`,
+    [merchantId, customerId]
+  );
+  if (!row.rowCount) return true;
+
+  const { tier, used, already } = row.rows[0];
+  /* Already inside the window: no new conversation, no slot consumed. */
+  if (already) return true;
+
+  if (Number(used) >= tier) {
+    console.warn(
+      `Meta tier reached for merchant ${merchantId}: ${used}/${tier} unique recipients in 24h`
+    );
+    return false;
+  }
+  return true;
 }
 
 async function checkAndIncrementSendQuota(client: PoolClient, merchantId: string) {
@@ -219,6 +292,20 @@ async function dispatchOne(
       data.customerId,
       "skipped",
       "Already had their allowance of messages"
+    );
+    return;
+  }
+
+  /* Meta's limit first: it is the one with consequences beyond a dropped
+     message. Blowing the rolling window damages the number's quality rating,
+     which no amount of retrying gets back. */
+  if (!(await withinMetaMessagingTier(client, data.merchantId, data.customerId))) {
+    await settle(
+      client,
+      data.campaignId,
+      data.customerId,
+      "skipped",
+      "WhatsApp 24-hour limit reached for this number"
     );
     return;
   }
@@ -366,35 +453,10 @@ new Worker(
       client.release();
     }
   },
-  { connection: redisConnection, concurrency: 10 }
-);
-
-new Worker(
-  "analytics_projection_queue",
-  async (job) => {
-    const { merchantId, eventType } = job.data as {
-      merchantId: string;
-      eventType: string;
-    };
-    if (eventType === "delivered") {
-      await db.query(
-        `INSERT INTO daily_merchant_metrics (merchant_id, metric_date, messages_delivered)
-         VALUES ($1, CURRENT_DATE, 1)
-         ON CONFLICT (merchant_id, metric_date) DO UPDATE SET
-           messages_delivered = daily_merchant_metrics.messages_delivered + 1, updated_at = NOW()`,
-        [merchantId]
-      );
-    } else if (eventType === "read") {
-      await db.query(
-        `INSERT INTO daily_merchant_metrics (merchant_id, metric_date, messages_read)
-         VALUES ($1, CURRENT_DATE, 1)
-         ON CONFLICT (merchant_id, metric_date) DO UPDATE SET
-           messages_read = daily_merchant_metrics.messages_read + 1, updated_at = NOW()`,
-        [merchantId]
-      );
-    }
-  },
-  { connection: redisConnection, concurrency: 10 }
+  /* One batch job at a time. Each job already loops up to 100 recipients, so
+     ten concurrent jobs meant up to ten simultaneous bursts of a hundred — the
+     opposite of pacing. The per-recipient rate is what the limiter governs. */
+  { connection: redisConnection, concurrency: 1, limiter: SEND_LIMITER }
 );
 
 async function dispatchLifecycle(scheduleId: string) {
@@ -565,7 +627,8 @@ new Worker(
       await dispatchLifecycle(scheduleId);
     }
   },
-  { connection: redisConnection, concurrency: 10 }
+  /* One message per job here, so the limiter is the whole story. */
+  { connection: redisConnection, concurrency: 5, limiter: SEND_LIMITER }
 );
 
 async function reconcileLifecycleSchedules() {

@@ -5,6 +5,7 @@ import {
   buildCustomerListQuery,
   consentScopeSql,
   customerListFilterSchema,
+  effectiveAgeSql,
 } from "./audience-engine.js";
 
 /* These exist because `buildAudienceQuery` leaked customers across merchants.
@@ -201,6 +202,54 @@ describe("buildCustomerListQuery — behavioural filters", () => {
     });
     assert.match(sql, /c\.merchant_id = \$1/);
     assert.equal(params[0], MERCHANT);
+  });
+});
+
+describe("age and birthday — defect 10", () => {
+  /* `birthdayMonth` filtered on `EXTRACT(MONTH FROM created_at)`, the month the
+     customer was entered into Custva. On the seeded merchant every customer
+     signed up in September, so a September birthday campaign matched all 8 of
+     them and a March one matched none — a plausible number of plausible people,
+     which is why it went unnoticed. */
+
+  it("reads the birthday from the date of birth, never from the signup date", () => {
+    const { sql } = buildAudienceQuery(MERCHANT, { birthdayMonth: 3 });
+    assert.match(sql, /EXTRACT\(MONTH FROM c\.date_of_birth\)/);
+    assert.doesNotMatch(
+      sql,
+      /EXTRACT\(MONTH FROM c\.created_at\)/,
+      "created_at is the signup month, not a birthday",
+    );
+  });
+
+  it("matches nobody when the birthday is unknown", () => {
+    /* The correct answer to "whose birthday is it" when you do not know. */
+    const { sql } = buildAudienceQuery(MERCHANT, { birthdayMonth: 3 });
+    assert.match(sql, /c\.date_of_birth IS NOT NULL/);
+  });
+
+  it("applies the same rule to the customers list filter", () => {
+    const { itemsSql } = buildCustomerListQuery(MERCHANT, {
+      sortBy: "updatedAt",
+      page: 1,
+      limit: 20,
+      birthdayMonth: 3,
+    });
+    assert.match(itemsSql, /EXTRACT\(MONTH FROM c\.date_of_birth\)/);
+    assert.doesNotMatch(itemsSql, /EXTRACT\(MONTH FROM c\.created_at\)/);
+  });
+
+  it("ages from the date of birth where there is one, so the filter does not drift", () => {
+    /* `customers.age` is typed once at the counter and is wrong from that
+       person's next birthday, so an under-25 campaign quietly grows to include
+       27-year-olds. */
+    const { sql } = buildAudienceQuery(MERCHANT, { minAge: 18, maxAge: 25 });
+    assert.match(sql, /AGE\(c\.date_of_birth\)/);
+    assert.ok(sql.includes(effectiveAgeSql("c")));
+  });
+
+  it("still uses the typed age for customers who only gave that", () => {
+    assert.match(effectiveAgeSql("c"), /COALESCE\(.*c\.age\)/);
   });
 });
 

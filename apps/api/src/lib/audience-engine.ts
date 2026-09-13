@@ -15,6 +15,17 @@ import { autoTagFilterSql, autoTagsSql } from "./customer-tags.js";
  * should never disagree, but an extra condition can only ever exclude someone
  * — the safe direction for a check about permission.
  */
+/**
+ * A customer's age, from their date of birth where they gave one.
+ *
+ * `customers.age` is typed once at the counter and is wrong from that person's
+ * next birthday onward, so a 24-and-under campaign quietly drifts into
+ * including 26-year-olds. Where a date of birth exists it is computed instead.
+ */
+export function effectiveAgeSql(alias = "c"): string {
+  return `COALESCE(EXTRACT(YEAR FROM AGE(${alias}.date_of_birth))::int, ${alias}.age)`;
+}
+
 export function consentScopeSql(alias = "c"): string {
   return CONSENT.allowUnknown
     ? `${alias}.consent_state <> 'withdrawn' AND ${alias}.whatsapp_opt_in = TRUE`
@@ -91,12 +102,12 @@ export function buildAudienceQuery(
     idx++;
   }
   if (rules.minAge != null) {
-    conditions.push(`c.age >= $${idx}`);
+    conditions.push(`${effectiveAgeSql("c")} >= $${idx}`);
     params.push(rules.minAge);
     idx++;
   }
   if (rules.maxAge != null) {
-    conditions.push(`c.age <= $${idx}`);
+    conditions.push(`${effectiveAgeSql("c")} <= $${idx}`);
     params.push(rules.maxAge);
     idx++;
   }
@@ -124,8 +135,14 @@ export function buildAudienceQuery(
     const tagConds = rules.tags.map((t) => autoTagFilterSql("c", t));
     conditions.push(`(${tagConds.join(" OR ")})`);
   }
+  /* Defect 10 — this read `created_at`, the signup month, so a March birthday
+     campaign reached everyone entered into Custva in March. A customer with no
+     recorded date of birth now matches nothing, which is the correct answer to
+     "whose birthday is it" when you do not know. */
   if (rules.birthdayMonth != null) {
-    conditions.push(`EXTRACT(MONTH FROM c.created_at) = $${idx}`);
+    conditions.push(
+      `c.date_of_birth IS NOT NULL AND EXTRACT(MONTH FROM c.date_of_birth) = $${idx}`
+    );
     params.push(rules.birthdayMonth);
     idx++;
   }
@@ -283,12 +300,12 @@ export function buildCustomerListQuery(
     idx++;
   }
   if (filters.minAge != null) {
-    conditions.push(`c.age >= $${idx}`);
+    conditions.push(`${effectiveAgeSql("c")} >= $${idx}`);
     params.push(filters.minAge);
     idx++;
   }
   if (filters.maxAge != null) {
-    conditions.push(`c.age <= $${idx}`);
+    conditions.push(`${effectiveAgeSql("c")} <= $${idx}`);
     params.push(filters.maxAge);
     idx++;
   }
@@ -337,7 +354,9 @@ export function buildCustomerListQuery(
     idx++;
   }
   if (filters.birthdayMonth != null) {
-    conditions.push(`EXTRACT(MONTH FROM c.created_at) = $${idx}`);
+    conditions.push(
+      `c.date_of_birth IS NOT NULL AND EXTRACT(MONTH FROM c.date_of_birth) = $${idx}`
+    );
     params.push(filters.birthdayMonth);
     idx++;
   }
@@ -379,6 +398,8 @@ export function buildCustomerListQuery(
              c.last_visit AS "lastVisit", c.created_at AS "createdAt", c.updated_at AS "updatedAt",
              c.segment, c.expected_gap_days AS "expectedGapDays",
              c.expected_revisit_at AS "expectedRevisitAt",
+             c.date_of_birth AS "dateOfBirth",
+             ${effectiveAgeSql("c")} AS "effectiveAge",
              c.consent_state AS "consentState",
              c.consent_updated_at AS "consentUpdatedAt",
              ${autoTagsSql("c")} AS "autoTags"
