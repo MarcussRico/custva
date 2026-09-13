@@ -1,0 +1,100 @@
+/* Legal pages. Set for reading, not for scanning: one column, generous
+   measure, no cards. Someone reaches these because they want to know exactly
+   what happens to their data, and the design should get out of the way. */
+.legal-page {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 3.5rem 1.5rem 6rem;
+  color: var(--gray-900);
+}
+
+.legal-page h1 {
+  font-family: var(--font-gabarito), ui-sans-serif, system-ui, sans-serif;
+  font-size: 2.1rem;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.35rem;
+}
+
+.legal-updated {
+  font-family: var(--font-dm-mono), ui-monospace, monospace;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gray-500);
+  margin-bottom: 2.5rem;
+}
+
+.legal-page h2 {
+  font-family: var(--font-gabarito), ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.2rem;
+  margin: 2.4rem 0 0.6rem;
+  letter-spacing: -0.01em;
+}
+
+.legal-page h3 {
+  font-size: 0.98rem;
+  font-weight: 600;
+  margin: 1.4rem 0 0.4rem;
+}
+
+.legal-page p,
+.legal-page li {
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: var(--gray-700);
+}
+
+.legal-page p { margin-bottom: 0.9rem; }
+
+.legal-page ul {
+  list-style: disc;
+  padding-left: 1.3rem;
+  margin-bottom: 0.9rem;
+}
+.legal-page li { margin-bottom: 0.35rem; }
+
+.legal-page a {
+  color: var(--custva-dark-blue);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.legal-page table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.6rem 0 1.2rem;
+  font-size: 0.88rem;
+}
+.legal-page th,
+.legal-page td {
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--gray-200);
+  vertical-align: top;
+}
+.legal-page th {
+  font-family: var(--font-dm-mono), ui-monospace, monospace;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gray-500);
+}
+
+/* Anything the operator must replace before this goes live. Deliberately
+   impossible to miss — a placeholder that ships is worse than no page. */
+.legal-todo {
+  background: #fdf3d8;
+  border: 1px solid #e8d48f;
+  border-radius: 6px;
+  padding: 0.1rem 0.35rem;
+  font-family: var(--font-dm-mono), ui-monospace, monospace;
+  font-size: 0.85em;
+  color: #6b4e00;
+}
+
+.legal-back {
+  display: inline-block;
+  margin-bottom: 2rem;
+  font-size: 0.85rem;
+  color: var(--gray-500);
+}

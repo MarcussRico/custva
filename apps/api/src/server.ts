@@ -22,6 +22,7 @@ import { merchantsRouter } from "./modules/merchants/routes.js";
 import { adminRouter } from "./modules/admin/routes.js";
 import { templatesRouter } from "./modules/templates/routes.js";
 import { webhookRouter } from "./modules/webhooks/routes.js";
+import { dataDeletionRouter } from "./modules/webhooks/data-deletion.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { dbPool } from "./lib/db.js";
 
@@ -98,6 +99,9 @@ app.get("/health/ready", async (_req, res) => {
 
 app.use("/api/v1/auth", authRateLimiter, authRouter);
 app.use("/api/v1/webhooks", webhookRouter);
+/* Unauthenticated by design — Meta calls it, and the payload is verified by
+   its own HMAC signature rather than by a bearer token. */
+app.use("/api/v1/webhooks", dataDeletionRouter);
 app.use("/api/v1/customers", requireAuth, customersRouter);
 app.use("/api/v1/campaigns", requireAuth, campaignsRouter);
 app.use("/api/v1/merchants", requireAuth, merchantsRouter);

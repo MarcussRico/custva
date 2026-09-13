@@ -24,6 +24,9 @@ const envSchema = z.object({
      header images. */
   WA_BUSINESS_ACCOUNT_ID: z.string().optional(),
   WA_APP_ID: z.string().optional(),
+  /* Where Meta sends a person to check a data-deletion request. Must be the
+     public URL, not localhost, or the callback returns a link nobody can open. */
+  PUBLIC_APP_URL: z.string().url().optional(),
   WA_APP_SECRET: z.string().optional(),
   WA_WEBHOOK_VERIFY_TOKEN: z.string().optional(),
   WA_MERCHANT_DAILY_CAP: z.coerce.number().default(500),
