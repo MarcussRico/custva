@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 export interface CustomerRow {
@@ -38,6 +39,8 @@ function dueLabel(row: CustomerRow): string {
   return `Due in ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"}`;
 }
 
+const SEGMENTS = ["first_time", "loyal", "at_risk", "dormant"];
+
 const EMPTY_FILTERS = {
   q: "",
   minSpend: "",
@@ -49,12 +52,24 @@ const EMPTY_FILTERS = {
 };
 
 export function CustomersPageClient() {
+  /* The dashboard links straight here with a filter already applied — "see all
+     7 overdue" has to arrive showing those 7, not the whole book. */
+  const search = useSearchParams();
+  const initialFilters = useMemo(
+    () => ({
+      ...EMPTY_FILTERS,
+      segment: SEGMENTS.includes(search.get("segment") ?? "") ? search.get("segment")! : "",
+      overdueOnly: search.get("overdueOnly") === "1" || search.get("overdueOnly") === "true"
+    }),
+    [search]
+  );
+
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState(EMPTY_FILTERS);
-  const [debouncedFilters, setDebouncedFilters] = useState(EMPTY_FILTERS);
+  const [filters, setFilters] = useState(initialFilters);
+  const [debouncedFilters, setDebouncedFilters] = useState(initialFilters);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedFilters(filters), 350);
@@ -80,7 +95,13 @@ export function CustomersPageClient() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(page), limit: "20", sortBy: "updatedAt" });
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: "20",
+        /* Filtering to overdue and then sorting by last edit buries the person
+           who has been missing longest. */
+        sortBy: debouncedFilters.overdueOnly ? "overdue" : "updatedAt"
+      });
       if (debouncedFilters.q.trim()) params.set("q", debouncedFilters.q.trim());
       if (debouncedFilters.minSpend.trim()) params.set("minSpend", debouncedFilters.minSpend.trim());
       if (debouncedFilters.exactVisits.trim()) params.set("exactVisits", debouncedFilters.exactVisits.trim());

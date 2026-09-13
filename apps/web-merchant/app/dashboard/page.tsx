@@ -1,7 +1,8 @@
 import { MerchantShell } from "../components/MerchantShell";
-import { merchantApi } from "../lib/api";
+import { merchantApi, merchantApiWithMeta } from "../lib/api";
 import { DashboardClient, type RecentCustomer } from "./DashboardClient";
 import type { DashboardKpis } from "./DashboardHero";
+import type { OverdueCustomer } from "./OverdueNow";
 
 export default async function MerchantDashboardPage() {
   let shopName = "Your Shop";
@@ -13,6 +14,8 @@ export default async function MerchantDashboardPage() {
     repeatCustomers: 0
   };
   let recentCustomers: RecentCustomer[] = [];
+  let overdueCustomers: OverdueCustomer[] = [];
+  let overdueTotal = 0;
 
   try {
     const shop = await merchantApi<{
@@ -35,6 +38,12 @@ export default async function MerchantDashboardPage() {
         custvaInfluencedRevenue: number;
         influencedVisits: number;
       };
+      overdue?: {
+        count: number;
+        pastSpend: number;
+        contactable: number;
+        withRhythm: number;
+      };
       repeatCustomers: number;
     }>("/analytics/dashboard");
     kpis = {
@@ -42,10 +51,25 @@ export default async function MerchantDashboardPage() {
       todayRevenue: stats.todayRevenue ?? 0,
       todayRepeatRevenue: stats.todayRepeatRevenue ?? 0,
       last30Days: stats.last30Days,
+      overdue: stats.overdue,
       repeatCustomers: stats.repeatCustomers ?? 0
     };
   } catch {
     // keep defaults
+  }
+
+  /* Sorted most-overdue-first, which is not the list page's default. A
+     customer three weeks past a weekly habit has to appear above one who is a
+     day past a monthly one. */
+  try {
+    const { data, meta } = await merchantApiWithMeta<
+      { items: OverdueCustomer[] },
+      { total?: number }
+    >("/customers?overdueOnly=true&sortBy=overdue&limit=6");
+    overdueCustomers = data.items;
+    overdueTotal = meta.total ?? data.items.length;
+  } catch {
+    overdueCustomers = [];
   }
 
   try {
@@ -58,9 +82,10 @@ export default async function MerchantDashboardPage() {
   return (
     <MerchantShell active="dashboard" shopName={shopName}>
       <DashboardClient
-        shopName={shopName}
         shopLogo={shopLogo}
         kpis={kpis}
+        overdueCustomers={overdueCustomers}
+        overdueTotal={overdueTotal}
         recentCustomers={recentCustomers}
       />
     </MerchantShell>

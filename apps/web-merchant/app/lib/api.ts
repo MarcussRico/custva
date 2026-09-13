@@ -20,6 +20,21 @@ export async function merchantApi<T>(path: string): Promise<T> {
   return json.data;
 }
 
+/** Same request, but keeps `meta` — list endpoints put the unpaginated total
+    there, and a "see all 12" link needs the 12. */
+export async function merchantApiWithMeta<T, M = Record<string, unknown>>(
+  path: string
+): Promise<{ data: T; meta: M }> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    cache: "no-store",
+    headers: authHeaders()
+  });
+  if (!response.ok) {
+    throw new Error(`Merchant API failed (${response.status})`);
+  }
+  return (await response.json()) as { data: T; meta: M };
+}
+
 export async function merchantFetch(path: string, init: RequestInit = {}) {
   return fetch(`${API_BASE}${path}`, {
     ...init,

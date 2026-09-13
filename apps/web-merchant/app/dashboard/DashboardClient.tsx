@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { DashboardHero, type DashboardKpis } from "./DashboardHero";
+import { DashboardHero, DashboardToday, type DashboardKpis } from "./DashboardHero";
 import { CustomerQuickEntryForm } from "./CustomerQuickEntryForm";
+import { OverdueNow, type OverdueCustomer } from "./OverdueNow";
 
 export interface RecentCustomer {
   id: string;
@@ -15,14 +16,16 @@ export interface RecentCustomer {
 }
 
 export function DashboardClient({
-  shopName,
   shopLogo,
   kpis,
+  overdueCustomers,
+  overdueTotal,
   recentCustomers
 }: {
-  shopName: string;
   shopLogo: string | null;
   kpis: DashboardKpis;
+  overdueCustomers: OverdueCustomer[];
+  overdueTotal: number;
   recentCustomers: RecentCustomer[];
 }) {
   const [phoneDigits, setPhoneDigits] = useState("");
@@ -30,7 +33,16 @@ export function DashboardClient({
   return (
     <>
 
-      <DashboardHero shopName={shopName} shopLogo={shopLogo} kpis={kpis} />
+      {/* Order is the point of this page. What needs attention comes first,
+          then the till figures, then the data entry that produces them —
+          the previous arrangement opened with a form. */}
+      <DashboardHero shopLogo={shopLogo} kpis={kpis} />
+
+      {phoneDigits.length === 0 && (
+        <OverdueNow customers={overdueCustomers} total={overdueTotal} />
+      )}
+
+      <DashboardToday kpis={kpis} />
       <CustomerQuickEntryForm onPhoneDigitsChange={setPhoneDigits} />
 
       {phoneDigits.length === 0 && (

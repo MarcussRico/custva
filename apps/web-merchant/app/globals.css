@@ -392,79 +392,193 @@ ul { list-style: none; }
   font-weight: 600;
 }
 
+/* ─────────────────────────────────────────────────────
+   DASHBOARD HERO — the state of the world, not a wall of tiles
+   The page used to open with five equal-weight KPI boxes and then a data
+   entry form. It now opens with the one sentence a shop owner needs: how
+   many of their customers are overdue right now.
+───────────────────────────────────────────────────── */
 .merchant-hero {
   background: linear-gradient(135deg, var(--custva-dark-blue) 0%, #133460 100%);
   color: #fff;
   border-radius: 16px;
-  padding: 1.25rem 1.5rem;
+  padding: 1.4rem 1.6rem;
   margin-bottom: 1rem;
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
-.merchant-hero-brand {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+.merchant-hero-lead {
+  min-width: 0;
+  flex: 1 1 22rem;
 }
 
 .merchant-hero-logo {
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
+  display: block;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   object-fit: cover;
-  border: 2px solid rgba(255, 212, 0, 0.5);
+  border: 1px solid rgba(255, 212, 0, 0.5);
+  margin-bottom: 0.6rem;
 }
 
-.merchant-hero-title {
+.merchant-hero-headline {
   font-size: 1.75rem;
+  line-height: 1.15;
   font-weight: 700;
   letter-spacing: -0.02em;
+  margin: 0;
 }
 
-.merchant-hero-kpis {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
+.merchant-hero-sub {
+  margin: 0.4rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.72);
+  max-width: 34rem;
 }
 
-.merchant-hero-kpi {
+/* Amber when something needs doing, so the state reads before the words do.
+   Deliberately not red: an overdue customer is an opportunity, not an error. */
+.merchant-hero--action .merchant-hero-headline { color: var(--custva-yellow); }
+.merchant-hero--clear .merchant-hero-headline { color: #8fe0b6; }
+.merchant-hero--learning .merchant-hero-headline { color: rgba(255, 255, 255, 0.92); }
+
+/* The only number Custva claims credit for, kept visually apart from the
+   till figures so the two are never read as one total. */
+.merchant-hero-proof {
+  flex: 0 1 17rem;
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 12px;
-  padding: 0.65rem 1rem;
-  min-width: 120px;
+  padding: 0.75rem 1rem;
 }
 
-/* The "brought back by Custva" tile carries a second line under the figure.
-   `small` is inline by default, so it ran straight on from the value and
-   rendered as "₹00 visits · ₹4,823 came back on their own". */
-.merchant-hero-kpi small {
+.merchant-hero-proof span {
   display: block;
-  margin-top: 0.3rem;
-  font-size: 0.72rem;
-  font-weight: 400;
-  line-height: 1.4;
-  color: rgba(255, 255, 255, 0.62);
-  letter-spacing: 0;
-}
-.merchant-hero-kpi--wide { min-width: 230px; }
-
-.merchant-hero-kpi span {
-  display: block;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   opacity: 0.8;
   margin-bottom: 0.25rem;
 }
 
-.merchant-hero-kpi strong {
-  font-size: 1.2rem;
+.merchant-hero-proof strong {
+  display: block;
+  font-size: 1.35rem;
   color: var(--custva-yellow);
+}
+
+.merchant-hero-proof small {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+/* ─── Who is overdue ────────────────────────────────── */
+.merchant-overdue-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.6rem;
+}
+
+.merchant-overdue-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.merchant-overdue-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem 0;
+  border-top: 1px solid #eef0f4;
+}
+.merchant-overdue-row:first-child { border-top: 0; }
+
+.merchant-overdue-who {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.merchant-overdue-name {
+  display: block;
+  font-weight: 600;
+  color: var(--custva-dark-blue);
+  text-decoration: none;
+}
+.merchant-overdue-name:hover { text-decoration: underline; }
+
+.merchant-overdue-meta {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--gray-500);
+  margin-top: 1px;
+}
+
+/* Right-aligned and fixed width so "3 days late" and "24 days late" line up
+   down the column and the scale is readable at a glance. */
+.merchant-overdue-when {
+  flex: 0 0 8.5rem;
+  text-align: right;
+}
+
+.merchant-overdue-when strong {
+  display: block;
+  font-size: 0.9rem;
+  color: #99332a;
+}
+
+.merchant-overdue-when span {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--gray-500);
+  margin-top: 1px;
+}
+
+/* A fixed column so "Long gone" and "Overdue" start on the same edge — ragged
+   pills made the rows look misaligned even though the text above them was not. */
+.merchant-overdue-row .seg-pill {
+  flex: 0 0 6.2rem;
+  text-align: center;
+}
+
+/* ─── Today at the till ─────────────────────────────── */
+.merchant-today {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.merchant-today-stat {
+  background: #fff;
+  border: 1px solid #e4e7ec;
+  border-radius: 12px;
+  padding: 0.65rem 0.9rem;
+}
+
+.merchant-today-stat span {
+  display: block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--gray-500);
+  margin-bottom: 0.2rem;
+}
+
+.merchant-today-stat strong {
+  font-size: 1.1rem;
+  color: var(--custva-dark-blue);
 }
 
 .merchant-quick-entry {
@@ -1037,9 +1151,27 @@ ul { list-style: none; }
       "main";
   }
 
+  /* Stacked under the topbar the sidebar kept its full-viewport height and
+     sticky offset, so it filled the phone screen and pushed the whole page
+     below the fold — the dashboard was unreachable on the device a shop
+     counter actually uses. */
+  .merchant-sidebar {
+    height: auto;
+    position: static;
+    overflow: visible;
+    border-right: 0;
+    border-bottom: 1px solid #e4e7ec;
+    padding: 0.6rem 0.75rem;
+  }
+
   .merchant-sidebar-nav {
     flex-direction: row;
     flex-wrap: wrap;
+    overflow-x: auto;
+  }
+
+  .merchant-sidebar-footer {
+    margin-top: 0.35rem;
   }
 
   .merchant-form-grid,
@@ -1052,8 +1184,27 @@ ul { list-style: none; }
     grid-template-columns: 1fr;
   }
 
-  .merchant-hero-title {
+  .merchant-hero-headline {
     font-size: 1.35rem;
+  }
+
+  /* Side by side, the heading wrapped to two lines next to the link and the
+     two collided. Stack them. */
+  .merchant-overdue-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+
+  /* At this width the overdue row's three columns collide; stack the
+     right-hand block under the name rather than squeezing it. */
+  .merchant-overdue-row {
+    flex-wrap: wrap;
+    gap: 0.4rem 0.75rem;
+  }
+  .merchant-overdue-when {
+    flex: 0 0 auto;
+    text-align: left;
   }
 
   .merchant-page-header {

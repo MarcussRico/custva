@@ -62,6 +62,36 @@ analyticsRouter.get("/dashboard", async (req, res) => {
     [merchantId]
   );
 
+  /* The dashboard's lead statement: how many customers are past their own
+     expected revisit date right now, and what they have spent historically.
+
+     `pastSpend` is money already taken, not a forecast — the dashboard says
+     "they have spent this with you so far", never "you will lose this".
+     `contactable` is the subset that has opted in to WhatsApp, so the count
+     the merchant can actually act on is never overstated by the count on
+     screen. */
+  const overdueRow = await query<{
+    count: string;
+    past_spend: string;
+    contactable: string;
+    with_rhythm: string;
+  }>(
+    /* `withRhythm` separates "nobody is overdue" from "we do not know yet".
+       Without it a brand new shop and a perfectly retained one show the
+       identical message, and one of them would be a lie. */
+    `SELECT COUNT(*) FILTER (WHERE overdue)::text AS count,
+            COALESCE(SUM(total_spend) FILTER (WHERE overdue), 0)::text AS past_spend,
+            COUNT(*) FILTER (WHERE overdue AND whatsapp_opt_in = TRUE)::text AS contactable,
+            COUNT(*)::text AS with_rhythm
+       FROM (
+         SELECT total_spend, whatsapp_opt_in,
+                expected_revisit_at <= NOW() AS overdue
+           FROM customers
+          WHERE merchant_id = $1 AND expected_revisit_at IS NOT NULL
+       ) c`,
+    [merchantId]
+  );
+
   const commissionRow = await query<{ pending: string; events: string }>(
     `SELECT COALESCE(SUM(commission_amount), 0)::text AS pending,
             COUNT(*)::text AS events
@@ -118,6 +148,12 @@ analyticsRouter.get("/dashboard", async (req, res) => {
       organicRepeatRevenue: Number(splitRow.rows[0].organic),
       custvaInfluencedRevenue: Number(splitRow.rows[0].influenced),
       influencedVisits: Number(splitRow.rows[0].influenced_visits)
+    },
+    overdue: {
+      count: Number(overdueRow.rows[0].count),
+      pastSpend: Number(overdueRow.rows[0].past_spend),
+      contactable: Number(overdueRow.rows[0].contactable),
+      withRhythm: Number(overdueRow.rows[0].with_rhythm)
     },
     commission: {
       pendingAmount: Number(commissionRow.rows[0].pending),

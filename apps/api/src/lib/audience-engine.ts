@@ -199,7 +199,9 @@ export const customerListFilterSchema = z.object({
     )
     .optional(),
   overdueOnly: z.coerce.boolean().optional(),
-  sortBy: z.enum(["name", "totalSpend", "totalVisits", "lastVisit", "createdAt", "updatedAt"]).default("updatedAt"),
+  sortBy: z
+    .enum(["name", "totalSpend", "totalVisits", "lastVisit", "createdAt", "updatedAt", "overdue"])
+    .default("updatedAt"),
   cursor: z.string().optional()
 });
 
@@ -328,7 +330,11 @@ export function buildCustomerListQuery(
     totalVisits: "c.total_visits DESC",
     lastVisit: "c.last_visit DESC NULLS LAST",
     createdAt: "c.created_at DESC",
-    updatedAt: "c.updated_at DESC"
+    updatedAt: "c.updated_at DESC",
+    /* Most overdue first — the earliest expected revisit date is the customer
+       who has been missing longest relative to their own rhythm. Customers
+       with no rhythm yet sort last rather than jumping the queue. */
+    overdue: "c.expected_revisit_at ASC NULLS LAST"
   };
   const orderBy = sortMap[filters.sortBy] ?? sortMap.updatedAt;
 
