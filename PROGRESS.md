@@ -7,7 +7,7 @@ session; do not let it drift.
 | | |
 |---|---|
 | **Last updated** | 2026-09-11 |
-| **Current phase** | **All phases complete (0, A, B, C, M, D, E).** The SRS is built, plus holdout measurement |
+| **Current phase** | **All phases complete (0, A, B, C, M, D, E).** The SRS is built, plus holdout measurement. Surfacing it in the product: customers list and dashboard done, 6 screens to go (§4b) |
 | **Next action** | Get Meta credentials. Then the admin template screen — templates cannot reach Meta any other way |
 | **Blocking** | No write access to `Madan94/custva`. Work is on a fork, open as [PR #1](https://github.com/Madan94/custva/pull/1) |
 | **Decision needed** | Shared vs per-merchant WhatsApp number (§6). Blocks SRS schema work |
@@ -593,8 +593,9 @@ sending behaviour invisibly and sees none of the intelligence behind it.
 | Built | In the UI? |
 |---|---|
 | Segment + expected revisit on customers | ✅ **Done** — see below |
+| Who is overdue, on the dashboard | ✅ **Done** — see below |
 | Segment / overdue audience filters on campaigns | ❌ |
-| Organic vs influenced revenue | Partly — one dashboard KPI |
+| Organic vs influenced revenue | Partly — one dashboard tile |
 | Commission ledger | ❌ no screen |
 | `GET /campaigns/:id/lift` | ❌ nothing calls it |
 | Holdout counts per campaign | ❌ |
@@ -629,6 +630,65 @@ schedule, amber overdue, red long gone, neutral for a first visit.
 
 Also fixed: the merchant sidebar still read "Customer Retention OS", the
 positioning line replaced on the landing page.
+
+### Dashboard reframe — done 2026-09-13
+
+The dashboard opened with five equal-weight till figures and then a customer
+entry form. Everything the product computes about a customer's rhythm sat two
+clicks away, so the page a merchant sees every morning looked like any other
+admin panel and answered no question they had.
+
+It now leads with the state of the world in one sentence, then who is overdue,
+ordered by how long each has been missing relative to their **own** rhythm —
+so a weekly regular three weeks late outranks a monthly one a day late:
+
+```
+4 customers are overdue right now
+They have spent ₹7,127 with you so far.
+
+Rahul Iyer      9840112255 · 4 visits · ₹2,244    32 days late   usually every 14d   Long gone
+Anjali Pillai   9840112300 · 3 visits · ₹1,677    18 days late   usually every 7d    Long gone
+Priya Nair      9840112244 · 5 visits · ₹1,715     6 days late   usually every 7d    Overdue
+Meera Krishnan  9840112288 · 7 visits · ₹1,491     4 days late   usually every 5d    Overdue
+```
+
+Today's till figures drop to a thin strip below it; the entry form and the
+recents table keep their place further down.
+
+**Three headline states**, because "nobody is overdue" and "we do not know yet"
+are not the same sentence — without the distinction a brand new shop is told
+its retention is perfect. `overdue.withRhythm` separates them:
+
+| Data | Headline |
+|---|---|
+| no customer has a rhythm yet | Learning your customers' rhythms |
+| everyone with a rhythm is on time | Nobody is overdue right now |
+| some are past their own gap | *N* customers are overdue right now |
+
+Where part of the overdue group has opted out of WhatsApp the contactable count
+is stated up front ("2 of them can be messaged on WhatsApp") rather than left to
+be discovered at send time. `pastSpend` is described as money these customers
+have already spent, never as money about to be lost — that number does not
+exist, and inventing it is the kind of claim §16 exists to prevent.
+
+Supporting changes:
+
+- `sortBy=overdue` (`expected_revisit_at ASC NULLS LAST`). Filtering to overdue
+  and then sorting by last edit buried the person missing longest.
+- The customers page now reads `overdueOnly` and `segment` from the URL, so the
+  dashboard's link arrives filtered instead of showing the whole book.
+- `merchantApiWithMeta`, because list totals live in `meta` and "see all 12"
+  needs the 12.
+
+**Found while verifying:** the merchant shell was unusable below 900px. Stacked
+under the topbar, the sidebar kept its full-viewport height and sticky offset,
+so it filled a phone screen and pushed every page below the fold — on the one
+device a shop counter actually uses. Fixed alongside.
+
+Verified through the real stack against the seeded merchant (4 overdue of 8 with
+a rhythm) and against an empty merchant for the learning state; all five
+headline cases exercised directly; 112 tests pass; no horizontal overflow at
+390px.
 
 ---
 
