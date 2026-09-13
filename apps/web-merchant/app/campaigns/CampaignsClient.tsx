@@ -11,6 +11,31 @@ interface Campaign {
   sentCount?: number;
   deliveredCount?: number;
   failedCount?: number;
+  /* Per-recipient outcomes (migration 0024). Null for campaigns that ran
+     before the dispatch ledger existed. */
+  dispatch?: Record<string, number> | null;
+}
+
+const DISPATCH_LABEL: Record<string, string> = {
+  sent: "sent",
+  skipped: "skipped",
+  failed: "failed",
+  pending: "not sent yet",
+  /* A claim taken but never settled: the worker died between claiming a
+     recipient and sending to them. Deliberately never retried — missing one
+     message is recoverable, sending two is not — so it is named rather than
+     hidden among the failures. */
+  sending: "interrupted"
+};
+
+/** "3 sent · 1 skipped · 1 failed" — what actually happened to each person. */
+function DispatchBreakdown({ dispatch }: { dispatch?: Record<string, number> | null }) {
+  if (!dispatch) return null;
+  const parts = ["sent", "skipped", "failed", "sending", "pending"]
+    .filter((k) => dispatch[k])
+    .map((k) => `${dispatch[k]} ${DISPATCH_LABEL[k]}`);
+  if (!parts.length) return null;
+  return <p className="merchant-dispatch-breakdown">{parts.join(" · ")}</p>;
 }
 
 interface TemplateOption {
@@ -369,6 +394,7 @@ export function CampaignsClient({
               <article key={c.id} className="merchant-campaign-card">
                 <h3>{c.campaignName}</h3>
                 <p>Status: {c.status} · Target: {c.targetCount} · Sent: {c.sentCount ?? 0} · Delivered: {c.deliveredCount ?? 0}</p>
+                <DispatchBreakdown dispatch={c.dispatch} />
                 <div className="merchant-form-actions">
                   <button type="button" className="merchant-btn merchant-btn--secondary" onClick={() => void previewAudience(c.id)}>Preview</button>
                   <button type="button" className="merchant-btn merchant-btn--primary" disabled={loading} onClick={() => void sendCampaign(c.id)}>Send Now</button>

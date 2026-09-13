@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import { computeSegmentation, lifecycleBullJobId } from "@custva/shared";
+import { claimRecipient, settle, settleQuietly } from "./dispatch-claim.js";
 import { canMessage, type ConsentState } from "@custva/shared";
 import { Queue, Worker, type JobsOptions } from "bullmq";
 import { randomUUID } from "node:crypto";
@@ -168,6 +169,7 @@ async function withinCustomerFrequencyCap(
   return true;
 }
 
+
 async function dispatchOne(
   client: PoolClient,
   data: {
@@ -180,6 +182,14 @@ async function dispatchOne(
     customerName?: string;
   }
 ) {
+  /* Defect 5 — claim before anything else. A replayed batch stops here for
+     every recipient it already reached, which is what turns a retry from
+     harmful into useful: it resumes at the failure point instead of starting
+     over. */
+  if (!(await claimRecipient(client, data.campaignId, data.customerId))) {
+    return;
+  }
+
   /* Consent, re-read at the moment of sending — defect 7.
      
      The audience was scoped by consent when the campaign was built, but a
@@ -198,10 +208,18 @@ async function dispatchOne(
     !consent.rows[0].whatsapp_opt_in ||
     !canMessage(consent.rows[0].consent_state)
   ) {
+    await settle(client, data.campaignId, data.customerId, "skipped", "Asked to stop");
     return;
   }
 
   if (!(await withinCustomerFrequencyCap(client, data.merchantId, data.customerId))) {
+    await settle(
+      client,
+      data.campaignId,
+      data.customerId,
+      "skipped",
+      "Already had their allowance of messages"
+    );
     return;
   }
 
@@ -211,6 +229,13 @@ async function dispatchOne(
       `UPDATE campaigns SET failed_count = failed_count + 1, updated_at = NOW()
        WHERE id = $1 AND merchant_id = $2`,
       [data.campaignId, data.merchantId]
+    );
+    await settle(
+      client,
+      data.campaignId,
+      data.customerId,
+      "skipped",
+      "Daily send limit reached"
     );
     return;
   }
@@ -240,8 +265,20 @@ async function dispatchOne(
       `UPDATE merchant_send_quotas SET sent_today = GREATEST(sent_today - 1, 0) WHERE merchant_id = $1`,
       [data.merchantId]
     );
+    await settle(
+      client,
+      data.campaignId,
+      data.customerId,
+      "failed",
+      error instanceof Error ? error.message.slice(0, 300) : "WhatsApp send failed"
+    );
     return;
   }
+
+  /* Marked the instant the provider accepts, before any bookkeeping. Past this
+     line the message exists in the world; if the inserts below then fail, the
+     recipient must still read as sent or the retry sends to them again. */
+  await settleQuietly(client, data.campaignId, data.customerId, "sent");
 
   await client.query(
     `INSERT INTO messages (id, merchant_id, customer_id, campaign_id, provider, provider_message_id, status)
@@ -281,16 +318,39 @@ new Worker(
         );
         const languageCode = template.rows[0]?.language_code ?? "en";
 
+        /* One recipient's failure must not abort the ninety-nine after them.
+           Before this, a database error anywhere in dispatchOne escaped the
+           loop and failed the whole job — which was defect 5's other half: not
+           only did the batch replay, the recipients past the failure point had
+           never been attempted at all.
+
+           Recorded and stepped over. A recipient marked `failed` is not retried
+           automatically; for paid marketing messages that is the right
+           conservative default, and the count is visible on the campaign. */
         for (const recipient of recipients) {
-          await dispatchOne(client, {
-            campaignId,
-            merchantId,
-            customerId: recipient.customerId,
-            mobile: recipient.mobile,
-            templateName,
-            languageCode,
-            customerName: recipient.name
-          });
+          try {
+            await dispatchOne(client, {
+              campaignId,
+              merchantId,
+              customerId: recipient.customerId,
+              mobile: recipient.mobile,
+              templateName,
+              languageCode,
+              customerName: recipient.name
+            });
+          } catch (error) {
+            console.error(
+              `Campaign ${campaignId}: dispatch to ${recipient.customerId} failed`,
+              error
+            );
+            await settleQuietly(
+              client,
+              campaignId,
+              recipient.customerId,
+              "failed",
+              error instanceof Error ? error.message.slice(0, 300) : "Dispatch failed"
+            );
+          }
         }
       } else {
         await dispatchOne(client, {

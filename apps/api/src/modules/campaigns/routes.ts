@@ -156,8 +156,22 @@ campaignsRouter.get("/", async (req, res) => {
             campaign_name AS "campaignName", status, scheduled_at AS "scheduledAt",
             target_count AS "targetCount", sent_count AS "sentCount",
             delivered_count AS "deliveredCount", failed_count AS "failedCount",
-            audience_rules AS "audienceRules", created_at AS "createdAt"
-     FROM campaigns WHERE merchant_id = $1
+            audience_rules AS "audienceRules", created_at AS "createdAt",
+            /* Per-recipient dispatch outcomes (migration 0024). "Sent 38 of 40"
+               is a number with no explanation attached until you can see that
+               two were skipped because they asked to stop. */
+            d.breakdown AS "dispatch"
+     FROM campaigns c0
+     LEFT JOIN LATERAL (
+       SELECT jsonb_object_agg(dispatch_status, n) AS breakdown
+         FROM (
+           SELECT dispatch_status, COUNT(*)::int AS n
+             FROM campaign_audiences
+            WHERE campaign_id = c0.id AND arm = 'treatment'
+            GROUP BY dispatch_status
+         ) s
+     ) d ON TRUE
+     WHERE merchant_id = $1
      ORDER BY created_at DESC
      LIMIT $2 OFFSET $3`,
     [req.auth!.merchantId, limit, offset]

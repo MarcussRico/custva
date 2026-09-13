@@ -4,7 +4,15 @@ import { merchantApi } from "../lib/api";
 import { CampaignsClient } from "./CampaignsClient";
 
 export default async function CampaignsPage() {
-  let campaigns: Array<{ id: string; campaignName: string; status: string; targetCount: number; sentCount?: number; deliveredCount?: number }> = [];
+  let campaigns: Array<{
+    id: string;
+    campaignName: string;
+    status: string;
+    targetCount: number;
+    sentCount?: number;
+    deliveredCount?: number;
+    dispatch?: Record<string, number> | null;
+  }> = [];
   let templates: Array<{ id: string; name: string }> = [];
   let shopName = "Custva Merchant";
 

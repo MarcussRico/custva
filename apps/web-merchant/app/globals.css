@@ -1624,3 +1624,11 @@ ul { list-style: none; }
   padding: 0.4rem 0.8rem;
   font-size: 0.82rem;
 }
+
+/* Per-recipient dispatch outcomes on a campaign card. Quiet — it is an
+   explanation of the counts above it, not a headline. */
+.merchant-dispatch-breakdown {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+  color: var(--gray-500);
+}

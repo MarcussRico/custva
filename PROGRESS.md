@@ -157,7 +157,7 @@ whole API process down.
 | # | Defect |
 |---|---|
 | 4 | **Webhooks are not idempotent.** Meta redelivers on any non-2xx or timeout; each redelivery re-inserts a `message_events` row and re-increments `campaigns.delivered_count` and `daily_merchant_metrics.messages_delivered`. Those inflated numbers are what the dashboard shows — and, once the SRS lands, an input to commission |
-| 5 | **A failed batch re-sends.** One BullMQ job carries a whole recipient list with `attempts: 5`. Send failures are caught per-recipient, but a DB error is not — so a failure at recipient 40 replays recipients 1-39, up to five times. Real money, and duplicate marketing messages are what destroy a number's quality rating |
+| 5 | ✅ **Fixed 2026-09-13 — see §4e.** **A failed batch re-sends.** One BullMQ job carries a whole recipient list with `attempts: 5`. Send failures are caught per-recipient, but a DB error is not — so a failure at recipient 40 replays recipients 1-39, up to five times. Real money, and duplicate marketing messages are what destroy a number's quality rating |
 | 6 | **Template approval is a local flag with no relationship to Meta.** The only Graph endpoint touched is `/messages`. `approval_status = 'approved'` means someone clicked in the Custva admin. Worse, the name sent to Meta is the free-text merchant-facing `templates.name` ("Brownie Day 3"); Meta requires lowercase snake_case, pre-approved on that WABA. **With real credentials today, essentially every send fails.** This is the single thing between this repo and a working pilot |
 | 7 | ✅ **Fixed 2026-09-13 — see §4c.** **Consent cannot be proven.** `whatsapp_opt_in BOOLEAN NOT NULL DEFAULT TRUE`, hardcoded `TRUE` on insert. No timestamp, no method, no record of wording shown, no revocation path. The webhook reads `statuses` only and ignores `messages`, so a customer replying STOP is invisible. Meta requires explicit opt-in; DPDP requires it recorded and revocable |
 
@@ -824,6 +824,80 @@ Five regression tests pin the SQL. One of them asserts segment targeting sits
 *inside* the manual-include OR — segments are a rule a manual include may
 bypass, which is what manual include means — while tenancy and consent stay
 outside it, where nothing can re-admit someone.
+
+---
+
+## 4e. Dispatch idempotency — done 2026-09-13 (defect 5)
+
+One BullMQ job carries up to 100 recipients with `attempts: 5`. Provider errors
+were caught per recipient, but a **database** error was not: it escaped the
+loop, failed the job, and BullMQ replayed the batch from the top. A failure at
+recipient 40 re-messaged recipients 1–39, up to five times.
+
+Two costs, and the second is the serious one: real money, and duplicate
+marketing messages are what destroys a WhatsApp number's quality rating — the
+one asset a merchant cannot buy back.
+
+There was a second half to it that the original review did not name. Because the
+error aborted the loop, **the recipients past the failure point were never
+attempted at all**. The batch both over-sent and under-sent.
+
+### The fix
+
+`campaign_audiences` already holds exactly one row per (campaign, customer), so
+migration `0024` turns it into the claim ledger: `dispatch_status`,
+`dispatch_attempted_at`, `dispatch_note`. A recipient is claimed with a
+conditional UPDATE before anything is sent; a replay finds nothing left to
+claim and resumes where it stopped.
+
+Ordering inside `dispatchOne` is load-bearing:
+
+1. **claim** — the first thing, before any check
+2. consent / frequency cap / quota → settle `skipped` with a reason
+3. provider call → on error settle `failed` with the reason
+4. **settle `sent` the instant the provider accepts**, before any bookkeeping
+5. the `messages` insert and the counters
+
+Step 4 is the subtle one. Past that line the message exists in the world, so a
+bookkeeping failure after it must not leave the recipient looking unsent — that
+would reintroduce the defect through the back door. The settle at that point is
+also the only one wrapped so it cannot itself throw.
+
+Per-recipient `try`/`catch` in the batch loop fixes the under-send half: one
+recipient's failure is recorded and stepped over instead of aborting the
+ninety-nine after them.
+
+**Deliberately at-most-once.** If the worker dies between claiming and sending,
+that row stays `sending` and is never retried. Missing one message is
+recoverable; sending two is not. Those rows are named "interrupted" on the
+campaign card rather than hidden among the failures.
+
+### Proven, not assumed
+
+Built the broken state and watched it fail, against the real database — a batch
+of 8 that dies at recipient 5, replayed the way BullMQ would:
+
+```
+BEFORE (no claim — the defect):
+  messages sent: 13 to 8 people
+  people messaged more than once: 5 ← 2× 2× 2× 2× 2×
+
+AFTER (claim before send):
+  messages sent: 8 to 8 people
+  people messaged more than once: 0
+  final ledger: 8 sent
+```
+
+Note the retry still completed all eight. Idempotency did not make the retry
+useless; it made it useful — it resumes at the failure point instead of starting
+over.
+
+`claimRecipient` / `settle` were extracted to `apps/worker/src/dispatch-claim.ts`
+so this could be exercised without booting the worker's Redis queues.
+
+The campaign card now reads `3 sent · 1 skipped · 1 failed`, because "Sent: 3 of
+5" is a number with no explanation attached until you can see that one of them
+asked to stop.
 
 ---
 
