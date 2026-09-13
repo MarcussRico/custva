@@ -20,7 +20,15 @@ import "../legal.css";
 export const metadata: Metadata = {
   title: "Privacy Policy — Custva",
   description:
-    "How Custva collects, uses and protects customer information on behalf of the businesses that use it."
+    "How Custva collects, uses and protects customer information on behalf of the businesses that use it.",
+  /* Temporary. These pages are live with placeholders still in them — legal
+     entity, registered address, grievance officer — and a search engine's cache
+     outlives the fix. Indexed now, a version of the privacy policy with blanks in
+     it stays findable long after the real one is published.
+     
+     Remove this once the placeholders are filled. Meta reads the URL directly
+     and is unaffected by it either way. */
+  robots: { index: false, follow: false }
 };
 
 const TODO = ({ children }: { children: React.ReactNode }) => (

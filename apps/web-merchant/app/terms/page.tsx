@@ -13,7 +13,15 @@ import "../legal.css";
 
 export const metadata: Metadata = {
   title: "Terms of Service — Custva",
-  description: "The terms on which businesses use Custva."
+  description: "The terms on which businesses use Custva.",
+  /* Temporary. These pages are live with placeholders still in them — legal
+     entity, registered address, grievance officer — and a search engine's cache
+     outlives the fix. Indexed now, a version of the terms with blanks in
+     it stays findable long after the real one is published.
+     
+     Remove this once the placeholders are filled. Meta reads the URL directly
+     and is unaffected by it either way. */
+  robots: { index: false, follow: false }
 };
 
 const TODO = ({ children }: { children: React.ReactNode }) => (
