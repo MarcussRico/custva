@@ -13,6 +13,29 @@ export interface CustomerRow {
   totalVisits: number;
   lastVisit: string | null;
   autoTags: string[];
+  /* The behavioural segment, from each customer's own visit rhythm. Distinct
+     from `autoTags`, which are global thresholds (spend > 2000, inactive > 30
+     days) and say nothing about whether a person is actually overdue. */
+  segment: "first_time" | "loyal" | "at_risk" | "dormant" | null;
+  expectedGapDays: string | number | null;
+  expectedRevisitAt: string | null;
+}
+
+const SEGMENT_LABEL: Record<string, string> = {
+  first_time: "First visit",
+  loyal: "On schedule",
+  at_risk: "Overdue",
+  dormant: "Long gone"
+};
+
+/** Plain language, because "1.7x expected gap" means nothing at a counter. */
+function dueLabel(row: CustomerRow): string {
+  if (!row.expectedRevisitAt) return "—";
+  const due = new Date(row.expectedRevisitAt).getTime();
+  const days = Math.round((Date.now() - due) / 86_400_000);
+  if (days > 0) return `${days} day${days === 1 ? "" : "s"} overdue`;
+  if (days === 0) return "Due today";
+  return `Due in ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"}`;
 }
 
 const EMPTY_FILTERS = {
@@ -20,7 +43,9 @@ const EMPTY_FILTERS = {
   minSpend: "",
   exactVisits: "",
   tag: "",
-  inactiveDaysExact: ""
+  inactiveDaysExact: "",
+  segment: "",
+  overdueOnly: false
 };
 
 export function CustomersPageClient() {
@@ -47,6 +72,8 @@ export function CustomersPageClient() {
     if (debouncedFilters.exactVisits.trim()) count++;
     if (debouncedFilters.tag) count++;
     if (debouncedFilters.inactiveDaysExact.trim()) count++;
+    if (debouncedFilters.segment) count++;
+    if (debouncedFilters.overdueOnly) count++;
     return count;
   }, [debouncedFilters]);
 
@@ -61,6 +88,8 @@ export function CustomersPageClient() {
       if (debouncedFilters.inactiveDaysExact.trim()) {
         params.set("inactiveDaysExact", debouncedFilters.inactiveDaysExact.trim());
       }
+      if (debouncedFilters.segment) params.set("segments", debouncedFilters.segment);
+      if (debouncedFilters.overdueOnly) params.set("overdueOnly", "true");
       const res = await fetch(`/api/customers?${params}`);
       const json = (await res.json()) as {
         success: boolean;
@@ -139,6 +168,30 @@ export function CustomersPageClient() {
           </select>
         </div>
         <div className="merchant-filter-field">
+          <span className="merchant-filter-label">Status</span>
+          <select
+            value={filters.segment}
+            onChange={(e) => setFilters({ ...filters, segment: e.target.value })}
+          >
+            <option value="">Any status</option>
+            <option value="first_time">First visit</option>
+            <option value="loyal">On schedule</option>
+            <option value="at_risk">Overdue</option>
+            <option value="dormant">Long gone</option>
+          </select>
+        </div>
+        <div className="merchant-filter-field">
+          <span className="merchant-filter-label">Overdue</span>
+          <label className="merchant-filter-check">
+            <input
+              type="checkbox"
+              checked={filters.overdueOnly}
+              onChange={(e) => setFilters({ ...filters, overdueOnly: e.target.checked })}
+            />
+            <span>Past their usual visit</span>
+          </label>
+        </div>
+        <div className="merchant-filter-field">
           <span className="merchant-filter-label">Inactive days</span>
           <input
             type="number"
@@ -159,10 +212,10 @@ export function CustomersPageClient() {
               <tr>
                 <th>Name</th>
                 <th>Mobile</th>
-                <th>Pincode</th>
+                <th>Status</th>
+                <th>Next visit due</th>
                 <th>Visits</th>
                 <th>Spend</th>
-                <th>Tags</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -178,10 +231,25 @@ export function CustomersPageClient() {
                   <tr key={c.id}>
                     <td>{c.name}</td>
                     <td>{c.mobile}</td>
-                    <td>{c.pincode ?? "—"}</td>
+                    <td>
+                      {c.segment ? (
+                        <span className={`seg-pill seg-${c.segment}`}>
+                          {SEGMENT_LABEL[c.segment]}
+                        </span>
+                      ) : (
+                        <span className="merchant-muted">—</span>
+                      )}
+                    </td>
+                    <td className={c.segment === "at_risk" || c.segment === "dormant" ? "seg-due" : ""}>
+                      {dueLabel(c)}
+                      {c.expectedGapDays ? (
+                        <small className="seg-gap">
+                          usually every {Math.round(Number(c.expectedGapDays))}d
+                        </small>
+                      ) : null}
+                    </td>
                     <td>{c.totalVisits}</td>
                     <td>₹{Number(c.totalSpend).toLocaleString("en-IN")}</td>
-                    <td>{(c.autoTags ?? []).join(", ") || "—"}</td>
                     <td>
                       <Link href={`/customers/${c.id}`} className="merchant-link">
                         View

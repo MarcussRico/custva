@@ -27,7 +27,7 @@ export function MerchantShell({
           <span className="merchant-topbar-mark">C</span>
           <div>
             <strong className="merchant-topbar-title">{shopName ?? "Custva Merchant"}</strong>
-            <span className="merchant-topbar-sub">Customer Retention OS</span>
+            <span className="merchant-topbar-sub">Customer intelligence for business</span>
           </div>
         </div>
         <LogoutButton />

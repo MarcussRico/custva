@@ -189,8 +189,14 @@ export const customerListFilterSchema = z.object({
   tag: z.enum(["New", "Repeat", "High-value", "Inactive"]).optional(),
   birthdayMonth: z.coerce.number().optional(),
   campaignEngagement: z.enum(["delivered", "read", "none"]).optional(),
+  /* Arrives as a query string, so a single value is a scalar and several are
+     comma-separated. Coerce before validating rather than making every caller
+     construct `segments[]=` repeats. */
   segments: z
-    .array(z.enum(["first_time", "loyal", "at_risk", "dormant"]))
+    .preprocess(
+      (v) => (typeof v === "string" ? v.split(",").filter(Boolean) : v),
+      z.array(z.enum(["first_time", "loyal", "at_risk", "dormant"]))
+    )
     .optional(),
   overdueOnly: z.coerce.boolean().optional(),
   sortBy: z.enum(["name", "totalSpend", "totalVisits", "lastVisit", "createdAt", "updatedAt"]).default("updatedAt"),
@@ -283,6 +289,20 @@ export function buildCustomerListQuery(
   if (filters.tag) {
     conditions.push(autoTagFilterSql("c", filters.tag));
   }
+  /* The behavioural segments. These were added to the schema in Phase C but
+     the SQL was never written, so the API accepted the filter and silently
+     returned everyone — the worst kind of failure, because it looks like it
+     worked. */
+  if (filters.segments?.length) {
+    conditions.push(`c.segment = ANY($${idx}::text[])`);
+    params.push(filters.segments);
+    idx++;
+  }
+  if (filters.overdueOnly) {
+    conditions.push(
+      `c.expected_revisit_at IS NOT NULL AND c.expected_revisit_at <= NOW()`
+    );
+  }
   if (filters.birthdayMonth != null) {
     conditions.push(`EXTRACT(MONTH FROM c.created_at) = $${idx}`);
     params.push(filters.birthdayMonth);
@@ -320,6 +340,8 @@ export function buildCustomerListQuery(
       SELECT c.id, c.merchant_id AS "merchantId", c.name, c.mobile, c.pincode, c.age,
              c.location, c.notes, c.total_spend AS "totalSpend", c.total_visits AS "totalVisits",
              c.last_visit AS "lastVisit", c.created_at AS "createdAt", c.updated_at AS "updatedAt",
+             c.segment, c.expected_gap_days AS "expectedGapDays",
+             c.expected_revisit_at AS "expectedRevisitAt",
              ${autoTagsSql("c")} AS "autoTags"
       FROM customers c
       WHERE ${where}

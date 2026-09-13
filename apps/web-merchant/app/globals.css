@@ -1142,3 +1142,46 @@ ul { list-style: none; }
     padding: 2.5rem 1.5rem 1.5rem;
   }
 }
+
+/* ─────────────────────────────────────────────────────
+   BEHAVIOURAL SEGMENT — customers list
+   Distinct from the legacy auto-tags: these come from each customer's own
+   visit rhythm, so overdue means overdue *for them*, not past a global
+   30-day threshold.
+───────────────────────────────────────────────────── */
+.seg-pill {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+/* Colour carries the urgency: green is fine, amber needs a nudge, red has
+   probably gone. First visit is neutral — nothing is wrong yet. */
+.seg-first_time { color: #334155; background: #e8edf3; }
+.seg-loyal      { color: #0b7d4d; background: #e3f3ec; }
+.seg-at_risk    { color: #8a6600; background: #fdf3d8; }
+.seg-dormant    { color: #99332a; background: #fbe6e3; }
+
+.seg-due { color: #99332a; font-weight: 600; }
+.seg-gap {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--gray-500);
+  margin-top: 1px;
+}
+
+.merchant-filter-check {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  color: var(--gray-700);
+  white-space: nowrap;
+  padding: 0.35rem 0;
+  cursor: pointer;
+}
+.merchant-filter-check input { width: 15px; height: 15px; cursor: pointer; }

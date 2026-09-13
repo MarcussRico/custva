@@ -8,7 +8,7 @@ session; do not let it drift.
 |---|---|
 | **Last updated** | 2026-09-11 |
 | **Current phase** | **All phases complete (0, A, B, C, M, D, E).** The SRS is built, plus holdout measurement |
-| **Next action** | **Stop building.** Get Meta credentials and a pilot merchant — every remaining gap needs reality, not code |
+| **Next action** | Get Meta credentials. Then the admin template screen — templates cannot reach Meta any other way |
 | **Blocking** | No write access to `Madan94/custva`. Work is on a fork, open as [PR #1](https://github.com/Madan94/custva/pull/1) |
 | **Decision needed** | Shared vs per-merchant WhatsApp number (§6). Blocks SRS schema work |
 
@@ -239,6 +239,7 @@ build so tests do not ship in `dist`.
 | A4 | Recompute inside the visit-write transaction | ✅ |
 | A5 | Hourly sweep in the worker (`setInterval`, no Redis needed) | ✅ code · ⚠️ unrun, needs the worker up |
 | A6 | `segment`, `expectedGapDays`, `expectedRevisitAt`, `segmentUpdatedAt` on the customer API | ✅ |
+| A7 | **Surfaced in the merchant UI** — status pill, "next visit due", and filters on the customers list | ✅ verified |
 
 **Done when:** a customer with a 7-day rhythm who has not been in for 12 days
 shows as At-Risk, with the reason readable in plain language.
@@ -580,6 +581,54 @@ than a flat band: a random split of 200 people genuinely varies more than one of
 10,000, and a fixed ±3pt band would have failed correct behaviour at small n
 while passing broken behaviour at large n. My first version of that test made
 exactly that mistake.
+
+---
+
+## 4b. API → UI integration
+
+Phases A–E landed in the database and the API. Most of it is still not visible
+in the product, which matters: a merchant using this today gets the improved
+sending behaviour invisibly and sees none of the intelligence behind it.
+
+| Built | In the UI? |
+|---|---|
+| Segment + expected revisit on customers | ✅ **Done** — see below |
+| Segment / overdue audience filters on campaigns | ❌ |
+| Organic vs influenced revenue | Partly — one dashboard KPI |
+| Commission ledger | ❌ no screen |
+| `GET /campaigns/:id/lift` | ❌ nothing calls it |
+| Holdout counts per campaign | ❌ |
+| Submit template to Meta / sync / upload image | ❌ API only |
+
+### Customers list — done 2026-09-13
+
+Status pill and "next visit due" per customer, plus filters for status and
+"past their usual visit". Verified against a seeded merchant through the real
+stack — API, BFF and browser:
+
+```
+all customers   Anjali Vikram Meera Karthik Divya Rahul Priya Arjun
+overdue only    Anjali Meera Rahul Priya
+status=dormant  Anjali Rahul
+```
+
+The row reads `18 days overdue · usually every 7d` rather than a ratio, because
+"1.7× expected gap" means nothing at a counter. Colour carries urgency: green on
+schedule, amber overdue, red long gone, neutral for a first visit.
+
+**Two bugs found while wiring it**, both silent:
+
+- `buildCustomerListQuery` accepted `segments` and `overdueOnly` in its schema
+  from Phase C onward but **never wrote the SQL**, so the filter returned
+  everyone and looked like it had worked.
+- The list `SELECT` did not return the segment columns at all, so the UI could
+  not have shown them regardless.
+- The schema also demanded an array while a query string sends
+  `segments=at_risk` as a scalar, so the filter the UI actually sends was
+  rejected. Now coerced, with tests for scalar, comma-separated and array forms.
+
+Also fixed: the merchant sidebar still read "Customer Retention OS", the
+positioning line replaced on the landing page.
 
 ---
 
