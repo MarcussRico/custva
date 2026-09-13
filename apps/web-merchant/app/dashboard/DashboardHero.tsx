@@ -46,7 +46,7 @@ export function DashboardHero({
           <strong>₹{kpis.todayRepeatRevenue.toLocaleString("en-IN")}</strong>
         </div>
         {kpis.last30Days && (
-          <div className="merchant-hero-kpi">
+          <div className="merchant-hero-kpi merchant-hero-kpi--wide">
             {/* The number Custva can actually stand behind: revenue from
                 visits where a message reached a customer who was overdue.
                 Shown separately from the figure above, never summed into it. */}
