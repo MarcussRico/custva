@@ -1173,6 +1173,68 @@ endpoint for real.
 
 ---
 
+## 4i. The worker, actually run — 2026-09-13
+
+Everything above was verified against Postgres directly or through the API.
+The **queue** had never moved a job on this machine: Redis was not installed, so
+BullMQ, the limiter, the retry path, the lifecycle dispatcher and the
+segmentation sweep had only ever been typechecked. That was the last part of the
+system claimed to work without having been watched working.
+
+Redis installed, worker booted, and the whole path driven:
+
+| | |
+|---|---|
+| Segmentation sweep | ran on startup, reclassified 8 customers — first execution ever |
+| Campaign send | 3 queued → 3 claimed → 3 sent → 3 `messages` rows, 3 distinct people |
+| **Replay of the same batch** (defect 5) | 3 messages before, 3 after — **nobody messaged twice** |
+| **Dispatch aimed at a withdrawn customer** (defect 7) | refused at send time, bypassing the audience query entirely |
+| Delivery receipt, redelivered 5× | one `delivered_count`, two `message_events` |
+
+The replay and the consent gate had previously been proven against the database.
+This is the same claim through the real queue, which is where it actually has to
+hold.
+
+### A bug only the live path exposed
+
+Meta redelivers, and redeliveries arrive out of order. Three replays of
+`delivered` landing *after* a `read` overwrote it, so a message the customer had
+opened reported as merely delivered:
+
+```
+after delivered                  → delivered
+after read                       → read
+after 3 redelivered 'delivered'  → delivered   ← wrong
+```
+
+The event ledger and the counters were already correct — this was the
+denormalised `messages.status` that display and exports read. Attribution was
+unaffected because it reads `COALESCE(opened_at, delivered_at)` rather than the
+status, and both timestamps survived.
+
+Status now only moves forward along sent → delivered → read, with `failed` off
+the ladder and always applying because it is terminal and the most actionable
+thing we can say. Re-verified: the same sequence now ends on `read`.
+
+### The demo book is reproducible
+
+`scripts/seed-demo-shop.mjs`. The Filter Room data existed only as ad-hoc rows
+in one laptop's Postgres, so anyone else cloning the repo got a working product
+with nothing in it — empty dashboard, empty segments, empty ledger, and no way
+to see what any of it does.
+
+Eight customers covering every segment, both ends of the overdue scale and all
+three consent states, because a demo where everything is healthy demonstrates
+nothing. Consent goes through the ledger, including one customer who granted and
+later replied STOP, so the evidence trail on a customer page has something in
+it.
+
+Writing it, I reintroduced **defect 13** — TypeScript generics in a `.mjs` file,
+`ReferenceError: string is not defined`, the exact bug that had silently broken
+`pnpm db:migrate` for everyone. Both seed scripts are now checked for it.
+
+---
+
 ## 5. Proposal — holdout groups
 
 **The problem with Phase B on its own.** Last-touch attribution says *"they got

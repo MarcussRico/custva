@@ -161,11 +161,27 @@ webhookRouter.post("/whatsapp", verifyWhatsAppSignature, async (req, res) => {
       continue;
     }
     const message = messageResult.rows[0];
+    /* Status only moves forward along sent → delivered → read.
+       
+       Meta redelivers, and redeliveries arrive out of order: three replays of
+       `delivered` landing after a `read` used to overwrite it, so a message the
+       customer had opened reported as merely delivered. The event ledger and
+       the counters were already right — this is the denormalised column on
+       `messages` that display and exports read.
+       
+       `failed` is not on the ladder and always applies: it is terminal and the
+       most actionable thing we could say about the message. */
     await query(
       `UPDATE messages
-       SET status = $1,
-           delivered_at = CASE WHEN $1 = 'delivered' THEN NOW() ELSE delivered_at END,
-           opened_at = CASE WHEN $1 = 'read' THEN NOW() ELSE opened_at END,
+       SET status = CASE
+             WHEN $1 = 'failed' THEN 'failed'
+             WHEN status = 'failed' THEN status
+             WHEN POSITION(status IN 'sent|delivered|read')
+                  > POSITION($1 IN 'sent|delivered|read') THEN status
+             ELSE $1
+           END,
+           delivered_at = CASE WHEN $1 = 'delivered' AND delivered_at IS NULL THEN NOW() ELSE delivered_at END,
+           opened_at = CASE WHEN $1 = 'read' AND opened_at IS NULL THEN NOW() ELSE opened_at END,
            updated_at = NOW()
        WHERE id = $2`,
       [status.status, message.id]

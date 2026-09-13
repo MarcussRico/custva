@@ -2,6 +2,28 @@
 
 Automation scripts for local development, CI support tasks, and production operations.
 
+## `seed-demo-shop.mjs`
+
+The demo book — a shop with enough history that every screen has something true
+to show. It existed only as ad-hoc rows in one laptop's Postgres, so anyone else
+cloning the repo got a working product with nothing in it.
+
+```
+node scripts/seed-demo-shop.mjs
+```
+
+Eight customers covering every segment, both ends of the overdue scale, and all
+three consent states — a demo where everything is healthy demonstrates nothing.
+Consent goes through the ledger (including one customer who granted and later
+replied STOP), so the evidence trail on a customer page has something in it.
+
+Segments are computed rather than stored: run the worker once, which sweeps on
+startup, or record a visit.
+
+**The numbers are fabricated.** Never point live Meta credentials at this
+merchant — it would message whoever really owns them. Use `seed-pilot-test.mjs`
+for that.
+
 ## `seed-pilot-test.mjs`
 
 Builds a self-contained test shop for verifying WhatsApp end to end — send,
