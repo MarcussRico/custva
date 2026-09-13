@@ -4,6 +4,10 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export interface MerchantProfile {
+  /* Whether this merchant sends from their own WhatsApp number, and what that
+     number is called. Never the credentials themselves. */
+  waStatus?: string | null;
+  waDisplayName?: string | null;
   shopName: string;
   ownerName: string;
   email: string;

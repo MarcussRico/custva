@@ -71,3 +71,4 @@ export * from "./meta-templates.js";
 export * from "./holdout.js";
 export * from "./media.js";
 export * from "./consent.js";
+export * from "./credentials.js";

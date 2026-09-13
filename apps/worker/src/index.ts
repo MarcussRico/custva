@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 import { computeSegmentation, lifecycleBullJobId } from "@custva/shared";
 import { claimRecipient, settle, settleQuietly } from "./dispatch-claim.js";
+import { resolveSender } from "./wa-sender.js";
 import { canMessage, type ConsentState } from "@custva/shared";
 import { Queue, Worker, type JobsOptions } from "bullmq";
 import { randomUUID } from "node:crypto";
@@ -50,18 +51,58 @@ const SEND_LIMITER = {
 const MERCHANT_DAILY_CAP = Number(process.env.WA_MERCHANT_DAILY_CAP ?? 500);
 const PLATFORM_DAILY_CAP = Number(process.env.WA_PLATFORM_DAILY_CAP ?? 100000);
 
-const waAdapter =
-  process.env.WA_PHONE_NUMBER_ID && process.env.WA_ACCESS_TOKEN
-    ? new WhatsAppCloudApiAdapter({
-        phoneNumberId: process.env.WA_PHONE_NUMBER_ID,
-        accessToken: process.env.WA_ACCESS_TOKEN,
-        businessAccountId: process.env.WA_BUSINESS_ACCOUNT_ID
-      })
-    : null;
+/**
+ * Which number a given merchant sends from.
+ *
+ * This used to be one adapter built at startup from the environment, so every
+ * merchant sent from one Custva number and every customer of every shop saw
+ * "Custva" as the sender. The display name belongs to the phone number and
+ * cannot vary per message, so that was not fixable in the message body.
+ *
+ * Resolved per merchant now, falling back to the platform number for anyone not
+ * yet connected — which is what lets a small pilot run shared on exactly the
+ * same code path that later runs per-merchant.
+ *
+ * Cached because the send loop asks once per recipient and resolving means a
+ * query plus a decrypt. The TTL is short: a merchant who disconnects or rotates
+ * a token must stop sending from the old one quickly, and a minute of staleness
+ * is the most that is acceptable there.
+ */
+const ADAPTER_TTL_MS = 60_000;
+const adapterCache = new Map<
+  string,
+  { at: number; adapter: WhatsAppCloudApiAdapter | null; isOwnNumber: boolean }
+>();
 
-if (isProd && !waAdapter) {
+async function adapterFor(
+  merchantId: string
+): Promise<{ adapter: WhatsAppCloudApiAdapter | null; isOwnNumber: boolean }> {
+  const hit = adapterCache.get(merchantId);
+  if (hit && Date.now() - hit.at < ADAPTER_TTL_MS) return hit;
+
+  const sender = await resolveSender(db, merchantId);
+  const entry = {
+    at: Date.now(),
+    isOwnNumber: sender?.isOwnNumber ?? false,
+    adapter: sender
+      ? new WhatsAppCloudApiAdapter({
+          phoneNumberId: sender.phoneNumberId,
+          accessToken: sender.accessToken,
+          businessAccountId: sender.businessAccountId,
+          appId: sender.appId
+        })
+      : null
+  };
+  adapterCache.set(merchantId, entry);
+  return entry;
+}
+
+if (isProd && !process.env.WA_PHONE_NUMBER_ID) {
+  /* A merchant with their own number no longer needs this, but a platform
+     fallback that does not exist means any unconnected merchant silently
+     cannot send. Better to refuse to boot than to discover that per campaign. */
   throw new Error(
-    "WA_PHONE_NUMBER_ID and WA_ACCESS_TOKEN are required in production (refusing silent mock mode)"
+    "WA_PHONE_NUMBER_ID and WA_ACCESS_TOKEN are required in production as the fallback sender for merchants who have not connected their own number"
   );
 }
 
@@ -330,9 +371,13 @@ async function dispatchOne(
   let providerMessageId = `mock-${randomUUID()}`;
   let status = "sent";
 
+  /* Resolved per merchant: their own number if they have connected one, the
+     platform's otherwise. */
+  const { adapter } = await adapterFor(data.merchantId);
+
   try {
-    if (waAdapter) {
-      const result = await waAdapter.sendTemplateMessage({
+    if (adapter) {
+      const result = await adapter.sendTemplateMessage({
         to: data.mobile,
         templateName: data.templateName,
         languageCode: data.languageCode ?? "en",
@@ -558,15 +603,17 @@ async function dispatchLifecycle(scheduleId: string) {
     let providerMessageId = `mock-${randomUUID()}`;
     let status = "sent";
 
+    const { adapter } = await adapterFor(data.merchant_id);
+
     try {
-      if (waAdapter) {
+      if (adapter) {
         const header = data.header_image_url
           ? { type: "image" as const, imageUrl: data.header_image_url }
           : data.header_text
             ? { type: "text" as const, text: data.header_text }
             : undefined;
 
-        const result = await waAdapter.sendTemplateMessage({
+        const result = await adapter.sendTemplateMessage({
           to: data.mobile,
           templateName: data.meta_template_name,
           languageCode: data.language_code ?? "en",
@@ -758,8 +805,11 @@ setInterval(() => {
 
 void sweepSegments();
 
+/* No longer one global mode: each merchant sends from their own number if they
+   have connected one, and from the platform's if not. What is reportable at
+   startup is only whether a fallback exists at all. */
 console.log(
-  waAdapter
-    ? "Worker started with WhatsApp Cloud API enabled."
-    : "Worker started in mock mode (WA credentials missing)."
+  process.env.WA_PHONE_NUMBER_ID && process.env.WA_ACCESS_TOKEN
+    ? "Worker started. Platform fallback sender configured; merchants with their own number use it instead."
+    : "Worker started in mock mode — no platform sender configured. Only merchants with their own connected number can send."
 );

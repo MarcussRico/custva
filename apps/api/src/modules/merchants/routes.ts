@@ -32,6 +32,11 @@ merchantsRouter.get("/me", async (req, res) => {
             m.current_revenue AS "currentRevenue",
             m.item_categories AS "itemCategories",
             m.status,
+            /* What name the merchant's customers see as the sender. Never the
+               credentials — only whether they have their own number and what
+               it is called. */
+            m.wa_onboarding_status AS "waStatus",
+            m.wa_display_name AS "waDisplayName",
             s.status AS "subscriptionStatus",
             s.plan_code AS "planCode"
      FROM merchants m

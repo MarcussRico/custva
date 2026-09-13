@@ -4,6 +4,10 @@ import bcrypt from "bcryptjs";
 import { sendError, sendSuccess } from "../../lib/api-response.js";
 import { query, withTransaction } from "../../lib/db.js";
 import { writeAudit } from "../../lib/audit.js";
+import {
+  connectMerchantSender,
+  disconnectMerchantSender
+} from "../../lib/merchant-wa-credentials.js";
 import { assignStarterPackToMerchant } from "../../lib/template-service.js";
 
 const PLATFORM_ADMIN_FILTER = `NOT EXISTS (
@@ -45,6 +49,13 @@ function merchantSelectSql(whereExtra = "") {
             m.current_revenue AS "currentRevenue",
             m.item_categories AS "itemCategories",
             m.created_at AS "createdAt",
+            /* Which number this merchant sends from. Never the token — that
+               column is encrypted and must not leave the database. */
+            m.wa_onboarding_status AS "waStatus",
+            m.wa_display_name AS "waDisplayName",
+            m.wa_phone_number_id AS "waPhoneNumberId",
+            m.wa_connected_at AS "waConnectedAt",
+            m.wa_last_error AS "waLastError",
             COALESCE(s.status, 'active') AS "subscriptionStatus",
             COALESCE(c.total_customers, 0) AS "totalCustomers"
      FROM merchants m
@@ -286,6 +297,74 @@ adminMerchantsRouter.put("/:id", async (req, res) => {
   await writeAudit(req, "merchant.update", "merchant", req.params.id, before, updated.rows[0]);
 
   return sendSuccess(req, res, updated.rows[0]);
+});
+
+/**
+ * Connect a merchant's own WhatsApp sender.
+ *
+ * Until a merchant does this they send from the platform number, which means
+ * every one of their customers sees "Custva" as the sender rather than the shop
+ * they actually gave their number to. The display name belongs to the phone
+ * number and cannot be varied per message, so this is the only way to fix it.
+ *
+ * Written by an operator today. When Embedded Signup lands, the same fields
+ * arrive from Meta's callback and this endpoint is what it calls.
+ */
+adminMerchantsRouter.post("/:id/whatsapp", async (req, res) => {
+  const schema = z.object({
+    phoneNumberId: z.string().trim().min(5).max(64),
+    businessAccountId: z.string().trim().min(5).max(64),
+    accessToken: z.string().trim().min(20),
+    displayName: z.string().trim().max(120).optional()
+  });
+  const body = schema.parse(req.body);
+
+  const exists = await query<{ id: string }>(`SELECT id FROM merchants WHERE id = $1`, [
+    req.params.id
+  ]);
+  if (!exists.rowCount) {
+    return sendError(req, res, "RESOURCE_NOT_FOUND", "Merchant not found", 404);
+  }
+
+  /* One phone number id cannot belong to two merchants — there would be no way
+     to route an inbound STOP. The unique index enforces it; this turns the
+     constraint violation into a sentence. */
+  const taken = await query<{ id: string; business_name: string }>(
+    `SELECT id, business_name FROM merchants
+      WHERE wa_phone_number_id = $1 AND id <> $2`,
+    [body.phoneNumberId, req.params.id]
+  );
+  if (taken.rowCount) {
+    return sendError(
+      req,
+      res,
+      "CONFLICT",
+      `That phone number is already connected to ${taken.rows[0].business_name}.`,
+      409
+    );
+  }
+
+  await connectMerchantSender(req.params.id, body);
+
+  /* Deliberately logs which number, never the token. */
+  await writeAudit(req, "merchant.whatsapp_connected", "merchant", req.params.id, null, {
+    phoneNumberId: body.phoneNumberId,
+    businessAccountId: body.businessAccountId,
+    displayName: body.displayName ?? null
+  });
+
+  return sendSuccess(req, res, { connected: true, phoneNumberId: body.phoneNumberId });
+});
+
+/** Stops them sending from their own number and clears the stored token. */
+adminMerchantsRouter.delete("/:id/whatsapp", async (req, res) => {
+  const reason =
+    typeof req.body?.reason === "string" ? req.body.reason.slice(0, 300) : "Disconnected by admin";
+  await disconnectMerchantSender(req.params.id, reason);
+  await writeAudit(req, "merchant.whatsapp_disconnected", "merchant", req.params.id, null, {
+    reason
+  });
+  return sendSuccess(req, res, { connected: false });
 });
 
 adminMerchantsRouter.patch("/:id/status", async (req, res) => {

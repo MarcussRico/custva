@@ -1235,6 +1235,93 @@ Writing it, I reintroduced **defect 13** — TypeScript generics in a `.mjs` fil
 
 ---
 
+## 4j. Per-merchant senders — done 2026-09-13
+
+The open question from §6 is closed. **Per-merchant numbers, with the platform
+number as a fallback**, so a small pilot runs shared on exactly the same code
+path that later runs per-merchant.
+
+### Why it could not be solved in the message body
+
+The sender name a customer sees is a property of the **phone number**, verified
+by Meta. It cannot vary per message. One shared number therefore shows "Custva"
+to every customer of every shop, no matter what the body says.
+
+That is not cosmetic. The customer gave their number to the shop, not to
+Custva; a name they do not recognise is blocked and reported far more often; and
+block-and-report is what drives Meta's quality rating. On a shared number that
+rating is **one pool**, so one merchant's annoyed customers throttle delivery
+for everyone else.
+
+### What was built
+
+Migration `0027` puts the sender on the merchant: phone number id, WABA id,
+display name, onboarding status, and the access token **encrypted**.
+
+A long-lived WhatsApp token sends messages and spends money as the merchant. In
+a plain column, a database dump or one careless `SELECT *` in a log hands that
+over. AES-256-GCM, keyed by `CUSTVA_CREDENTIAL_KEY` via scrypt, stored as
+`iv:tag:ciphertext`. The crypto lives in `@custva/shared` because both the API
+(which writes it at onboarding) and the worker (which reads it to send) need it,
+and a second copy of crypto code is a second chance to get it subtly wrong.
+
+The worker no longer builds one adapter at startup. It resolves per merchant,
+cached for 60s — short, because a merchant who disconnects or rotates a token
+must stop sending from the old one quickly.
+
+**A tampered or undecryptable token returns null rather than falling back.**
+Falling through to the platform number would send from the wrong shop under the
+wrong name, which is worse than not sending at all.
+
+Inbound webhooks now route by `metadata.phone_number_id`. On a shared number
+that is absent and a STOP is recorded against every merchant holding that
+mobile — the conservative reading, since we cannot tell which shop they meant.
+Once a merchant has their own number the reply is unambiguously addressed to
+that shop, and silencing the customer at every other shop they visit would be
+wrong. Both cases are recorded in the evidence so they stay distinguishable.
+
+### Verified
+
+```
+connected merchant   → own number 111222333444, "Filter Room", token decrypts
+unconnected merchant → falls back to the platform number
+tampered token       → null, refuses to send, does not fall back
+second merchant claiming the same number → 409, named the shop that holds it
+disconnect           → token column cleared, not merely flagged
+STOP with metadata   → scoped to the one shop that owns the number
+STOP without         → every shop holding that mobile
+token in API responses → never
+```
+
+Seven crypto tests cover the round trip, ciphertext opacity, a fresh IV per
+encryption, tampered ciphertext, a tampered auth tag, malformed input, and
+awkward characters.
+
+### The merchant is told
+
+A merchant will reasonably assume messages go out under their shop's name. On
+the shared number they do not, and left unsaid they discover it when a customer
+asks who Custva is. Their settings page now shows the sender exactly as the
+customer sees it, and says plainly that the shop name appears in the message but
+not as the sender.
+
+### Still to come
+
+Embedded Signup — the merchant clicks once, logs into Facebook, picks a number.
+It needs Meta **Tech Provider** status, which is a separate and slower
+application. `POST /admin/merchants/:id/whatsapp` takes exactly the fields that
+callback returns, so the flow drops onto the existing endpoint rather than
+replacing it. An operator can connect a merchant by hand until then.
+
+**The onboarding trap worth writing down:** registering a number with the Cloud
+API removes it from the WhatsApp and WhatsApp Business apps on the owner's
+phone. Most small shops run their business on that number, so "just give us your
+number" in practice means "a second number you do not already use". That is a
+product decision — whether Custva supplies the SIM or the onboarding script asks
+for one — not an engineering one.
+
+---
+
 ## 5. Proposal — holdout groups
 
 **The problem with Phase B on its own.** Last-touch attribution says *"they got
@@ -1291,7 +1378,7 @@ extra cost, meaningfully better timing. Cheap to add once A2 computes gaps.
 
 | Question | Status |
 |---|---|
-| **Whose WhatsApp number sends?** | **Open, and it blocks SRS schema work.** The worker builds one adapter from `WA_PHONE_NUMBER_ID` / `WA_ACCESS_TOKEN` at startup; there are no per-merchant credentials in the schema. So every merchant sends from one Custva number. That means the cafe's customer hears from a business they don't recognise, quality rating is one shared pool where one merchant's complaints throttle everyone, Custva pays for every message, and attribution becomes bookkeeping rather than fact. Moving to per-merchant accounts (Meta Tech Provider + Embedded Signup) touches tenancy, credentials, onboarding and billing at once — cheap to decide now, expensive after the commission ledger exists |
+| **Whose WhatsApp number sends?** | **Decided 2026-09-13: per-merchant, shared for the pilot. Built — see §4j.** Previously: | The worker builds one adapter from `WA_PHONE_NUMBER_ID` / `WA_ACCESS_TOKEN` at startup; there are no per-merchant credentials in the schema. So every merchant sends from one Custva number. That means the cafe's customer hears from a business they don't recognise, quality rating is one shared pool where one merchant's complaints throttle everyone, Custva pays for every message, and attribution becomes bookkeeping rather than fact. Moving to per-merchant accounts (Meta Tech Provider + Embedded Signup) touches tenancy, credentials, onboarding and billing at once — cheap to decide now, expensive after the commission ledger exists |
 | **Image sourcing** — where do the per-message images come from? | **Path now exists** (upload, validate, store, hand to Meta). Still open commercially: who takes the photos, and when in onboarding. Bytes live in Postgres, which is right for a pilot and should move to object storage before scale |
 | Has anything ever been sent through real Meta credentials? | Almost certainly not — defect 6 means sends would fail. If anyone believes otherwise, something is configured outside the repo and needs to be seen |
 | Is the pilot clock running? | If there is a signed MOU with dates, it needs reconciling against a 6–10 week SRS build on top of Phase 0 |

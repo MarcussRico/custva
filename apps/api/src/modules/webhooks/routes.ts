@@ -5,6 +5,7 @@ import { env, isProduction } from "../../config.js";
 import { query, withTransaction } from "../../lib/db.js";
 import { classifyInbound } from "@custva/shared";
 import { findCustomersByMobile, recordConsent } from "../../lib/consent-service.js";
+import { merchantForPhoneNumberId } from "../../lib/merchant-wa-credentials.js";
 
 export const webhookRouter: Router = Router();
 
@@ -76,17 +77,31 @@ function inboundText(message: InboundMessage): string | null {
   );
 }
 
-async function handleInboundMessages(messages: InboundMessage[]): Promise<void> {
+async function handleInboundMessages(
+  messages: InboundMessage[],
+  phoneNumberId?: string
+): Promise<void> {
+  /* Which shop the customer was replying to.
+     
+     On a shared number this is null and a withdrawal is recorded against every
+     merchant that holds the number — the conservative reading, since we cannot
+     tell which shop they meant and erring toward more withdrawal is the right
+     direction.
+     
+     Once a merchant sends from their own number, the customer's "STOP" is
+     unambiguously addressed to that shop, and silencing them at every other
+     shop they happen to visit would be wrong. */
+  const owner = await merchantForPhoneNumberId(phoneNumberId);
+
   for (const message of messages) {
     const body = inboundText(message);
     const action = classifyInbound(body);
     if (!action) continue;
 
-    /* A number can be a customer of several merchants. A withdrawal is
-       addressed to the business that messaged them, and we cannot tell which
-       from the payload — so it is recorded against every merchant that holds
-       the number. Erring toward more withdrawal is the right direction. */
-    const customers = await findCustomersByMobile(message.from);
+    /* Scoped above: to the one shop when the number identifies it, to every
+       shop holding this mobile when it does not. */
+    const all = await findCustomersByMobile(message.from);
+    const customers = owner ? all.filter((c) => c.merchantId === owner) : all;
     if (!customers.length) continue;
 
     const occurredAt = message.timestamp
@@ -110,7 +125,12 @@ async function handleInboundMessages(messages: InboundMessage[]): Promise<void> 
             providerMessageId: message.id,
             from: message.from,
             body,
-            messageType: message.type ?? "text"
+            messageType: message.type ?? "text",
+            /* Which number they replied to, so a withdrawal recorded across
+               several shops on a shared number is distinguishable later from
+               one addressed to a single shop. */
+            receivedOnPhoneNumberId: phoneNumberId ?? null,
+            scopedToMerchant: Boolean(owner)
           }
         })
       );
@@ -140,10 +160,13 @@ webhookRouter.post("/whatsapp", verifyWhatsAppSignature, async (req, res) => {
           timestamp?: string;
         }>;
         messages?: InboundMessage[];
+        /* Which of our numbers this arrived on. With one shared number it was
+           noise; with per-merchant numbers it is how a STOP finds its shop. */
+        metadata?: { phone_number_id?: string; display_phone_number?: string };
       }
     | undefined;
 
-  await handleInboundMessages(value?.messages ?? []);
+  await handleInboundMessages(value?.messages ?? [], value?.metadata?.phone_number_id);
 
   const statuses = value?.statuses ?? [];
   for (const status of statuses) {

@@ -1930,3 +1930,37 @@ ul { list-style: none; }
   font-size: 0.85rem;
   color: var(--gray-900);
 }
+
+/* Who the customer sees the message from. Given the weight of a reading rather
+   than a setting, because on the shared number it is the thing a merchant will
+   most reasonably have assumed wrong. */
+.merchant-sender-preview {
+  margin: 0 0 0.6rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--r-sm);
+  background: var(--gray-50);
+}
+
+.merchant-sender-preview span {
+  display: block;
+  font-family: var(--font-dm-mono), ui-monospace, monospace;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gray-500);
+}
+
+.merchant-sender-preview strong {
+  display: block;
+  font-size: 1.15rem;
+  margin-top: 0.15rem;
+  color: var(--custva-dark-blue);
+}
+
+.merchant-sender-note {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  max-width: 66ch;
+}
