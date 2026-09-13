@@ -92,6 +92,23 @@ analyticsRouter.get("/dashboard", async (req, res) => {
     [merchantId]
   );
 
+  /* The consent gap, made visible rather than left to be discovered at send
+     time. Every customer created before migration 0023 is `unknown` — no
+     record exists, which is not the same as permission. Surfacing the count is
+     what lets a merchant close it at the counter instead of finding out when
+     Meta rejects the send. */
+  const consentRow = await query<{
+    granted: string;
+    withdrawn: string;
+    unknown: string;
+  }>(
+    `SELECT COUNT(*) FILTER (WHERE consent_state = 'granted')::text AS granted,
+            COUNT(*) FILTER (WHERE consent_state = 'withdrawn')::text AS withdrawn,
+            COUNT(*) FILTER (WHERE consent_state = 'unknown')::text AS unknown
+       FROM customers WHERE merchant_id = $1`,
+    [merchantId]
+  );
+
   const commissionRow = await query<{ pending: string; events: string }>(
     `SELECT COALESCE(SUM(commission_amount), 0)::text AS pending,
             COUNT(*)::text AS events
@@ -154,6 +171,11 @@ analyticsRouter.get("/dashboard", async (req, res) => {
       pastSpend: Number(overdueRow.rows[0].past_spend),
       contactable: Number(overdueRow.rows[0].contactable),
       withRhythm: Number(overdueRow.rows[0].with_rhythm)
+    },
+    consent: {
+      granted: Number(consentRow.rows[0].granted),
+      withdrawn: Number(consentRow.rows[0].withdrawn),
+      unknown: Number(consentRow.rows[0].unknown)
     },
     commission: {
       pendingAmount: Number(commissionRow.rows[0].pending),

@@ -1350,3 +1350,159 @@ ul { list-style: none; }
   cursor: pointer;
 }
 .merchant-filter-check input { width: 15px; height: 15px; cursor: pointer; }
+
+/* ─────────────────────────────────────────────────────
+   CONSENT — defect 7
+   Deliberately quieter than the segment pills. Consent state is a fact about
+   permission, not a call to action, and colouring "not recorded" like an error
+   would train merchants to ignore it.
+───────────────────────────────────────────────────── */
+.consent-pill {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.18rem 0.55rem;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.consent-granted   { color: #0b7d4d; background: #eef7f2; }
+.consent-unknown   { color: #6b7280; background: #f1f3f6; }
+.consent-withdrawn { color: #99332a; background: #fbe6e3; }
+
+/* The gap notice on the dashboard. A statement of fact with a next step, not a
+   warning banner — an exclamation mark here would be dismissed by week two. */
+.merchant-consent-gap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: #fffaf0;
+  border: 1px solid #f0e2c4;
+  border-radius: 12px;
+  padding: 0.85rem 1.1rem;
+  margin-bottom: 1rem;
+}
+
+.merchant-consent-gap strong {
+  display: block;
+  font-size: 0.95rem;
+  color: var(--custva-dark-blue);
+}
+
+.merchant-consent-gap p {
+  margin: 0.25rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--gray-500);
+  max-width: 52ch;
+}
+
+/* The consent tickbox on the entry form. The notice text is the label, because
+   the wording is the thing being agreed to — it cannot be hidden behind a
+   generic "I consent". */
+.merchant-consent-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid #e4e7ec;
+  border-radius: 10px;
+  background: #fbfcfd;
+  cursor: pointer;
+}
+
+.merchant-consent-check input {
+  width: auto;
+  margin-top: 0.15rem;
+  flex: 0 0 auto;
+}
+
+.merchant-consent-check strong {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--custva-dark-blue);
+}
+
+.merchant-consent-check small {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--gray-500);
+}
+
+.merchant-consent-state {
+  margin: 0;
+  font-size: 0.82rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 10px;
+  background: #f1f3f6;
+  color: var(--gray-500);
+}
+.merchant-consent-state--withdrawn {
+  background: #fbe6e3;
+  color: #99332a;
+  font-weight: 600;
+}
+
+.merchant-consent-head {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 0.5rem;
+}
+
+.merchant-consent-note {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  max-width: 60ch;
+}
+
+.merchant-consent-log {
+  list-style: none;
+  margin: 0 0 0.9rem;
+  padding: 0;
+  border-top: 1px solid #eef0f4;
+}
+
+.merchant-consent-log li {
+  padding: 0.6rem 0;
+  border-bottom: 1px solid #eef0f4;
+}
+
+.merchant-consent-log strong {
+  display: inline-block;
+  font-size: 0.88rem;
+  color: var(--custva-dark-blue);
+  margin-right: 0.5rem;
+}
+
+.merchant-consent-log span {
+  font-size: 0.78rem;
+  color: var(--gray-500);
+}
+
+/* The wording, quoted. Set apart so it reads as the customer's agreement
+   rather than as UI copy. */
+.merchant-consent-log blockquote {
+  margin: 0.35rem 0 0;
+  padding-left: 0.7rem;
+  border-left: 2px solid #e4e7ec;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--gray-500);
+}
+
+.merchant-consent-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.merchant-consent-foot {
+  margin: 0.6rem 0 0;
+  font-size: 0.75rem;
+  color: var(--gray-500);
+}

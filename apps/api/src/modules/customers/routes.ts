@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import type { Segment } from "@custva/shared";
+import { getConsentHistory, recordConsent } from "../../lib/consent-service.js";
 import { query, withTransaction } from "../../lib/db.js";
 import { recomputeSegmentForCustomer } from "../../lib/segmentation-service.js";
 import { attributeVisit } from "../../lib/attribution-service.js";
@@ -22,13 +23,29 @@ const createCustomerSchema = z.object({
   pincode: z.string().regex(/^\d{6}$/).optional().or(z.literal("")),
   age: z.number().int().min(1).max(120).optional(),
   notes: z.string().optional(),
-  visitDate: z.string().datetime().optional()
+  visitDate: z.string().datetime().optional(),
+  /* Consent captured at the counter, at the one moment the customer is
+     actually standing there. Optional, because staff will not always ask and a
+     silent default of "yes" is exactly what this replaces — omitting it leaves
+     the customer `unknown`, which is the truth. */
+  consent: z
+    .object({
+      granted: z.boolean(),
+      method: z.enum(["counter_verbal", "counter_form"]).default("counter_verbal"),
+      /* What the customer was actually told, verbatim. Consent is to a
+         specific statement, so the statement is stored with it. */
+      noticeText: z.string().max(2000).optional(),
+      noticeVersion: z.string().max(50).optional()
+    })
+    .optional()
 });
 
 const CUSTOMER_SELECT = `
   id, merchant_id AS "merchantId", name, mobile, pincode, age, location, notes,
   total_spend AS "totalSpend", total_visits AS "totalVisits", last_visit AS "lastVisit",
-  whatsapp_opt_in AS "whatsappOptIn", created_at AS "createdAt", updated_at AS "updatedAt",
+  whatsapp_opt_in AS "whatsappOptIn",
+  consent_state AS "consentState", consent_updated_at AS "consentUpdatedAt",
+  created_at AS "createdAt", updated_at AS "updatedAt",
   segment, expected_gap_days AS "expectedGapDays",
   expected_revisit_at AS "expectedRevisitAt", segment_updated_at AS "segmentUpdatedAt"
 `;
@@ -138,6 +155,27 @@ customersRouter.post("/", async (req, res) => {
          WHERE id = $6 AND merchant_id = $7`,
         [body.name, pincode, body.age ?? null, body.billingAmount, visitDate, customerId, merchantId]
       );
+    }
+
+    /* Recorded before the visit so that if anything below fails, no visit
+       exists claiming a consent that was never stored — and after the customer
+       row exists, because the ledger references it.
+
+       Absence is meaningful here: no `consent` in the request leaves the
+       customer `unknown` rather than defaulting to yes. That default is the
+       defect being fixed. */
+    if (body.consent) {
+      await recordConsent(client, {
+        merchantId,
+        customerId,
+        action: body.consent.granted ? "granted" : "withdrawn",
+        method: body.consent.method,
+        source: "merchant_staff",
+        noticeText: body.consent.noticeText ?? null,
+        noticeVersion: body.consent.noticeVersion ?? null,
+        recordedBy: req.auth!.userId ?? null,
+        occurredAt: visitDate
+      });
     }
 
     const visitInsert = await client.query<{ id: string }>(
@@ -270,7 +308,55 @@ customersRouter.get("/:id", async (req, res) => {
     [req.params.id, req.auth!.merchantId]
   );
 
-  return sendSuccess(req, res, { ...item.rows[0], visits: visits.rows });
+  /* The evidence trail, alongside the customer. A merchant asked "why did she
+     stop getting messages" needs the answer on the same screen as the person,
+     not in a support ticket. */
+  const consents = await getConsentHistory(req.auth!.merchantId, req.params.id);
+
+  return sendSuccess(req, res, { ...item.rows[0], visits: visits.rows, consents });
+});
+
+/**
+ * Record a consent decision outside the visit flow — defect 7.
+ *
+ * Separate from PUT /:id on purpose. Consent is not an editable attribute of a
+ * customer; it is an event that happened, and the ledger it appends to is
+ * append-only. A merchant "correcting" consent the way they correct a spelling
+ * is exactly the thing that makes the record worthless.
+ */
+customersRouter.post("/:id/consent", async (req, res) => {
+  const schema = z.object({
+    granted: z.boolean(),
+    method: z.enum(["counter_verbal", "counter_form", "merchant_import"]),
+    noticeText: z.string().max(2000).optional(),
+    noticeVersion: z.string().max(50).optional()
+  });
+  const body = schema.parse(req.body);
+  const merchantId = req.auth!.merchantId;
+
+  const existing = await query<{ id: string }>(
+    "SELECT id FROM customers WHERE id = $1 AND merchant_id = $2",
+    [req.params.id, merchantId]
+  );
+  if (!existing.rowCount) {
+    return sendError(req, res, "RESOURCE_NOT_FOUND", "Customer not found", 404);
+  }
+
+  const record = await withTransaction((client) =>
+    recordConsent(client, {
+      merchantId,
+      customerId: req.params.id,
+      action: body.granted ? "granted" : "withdrawn",
+      method: body.method,
+      source: "merchant_staff",
+      noticeText: body.noticeText ?? null,
+      noticeVersion: body.noticeVersion ?? null,
+      recordedBy: req.auth!.userId ?? null
+    })
+  );
+
+  const consents = await getConsentHistory(merchantId, req.params.id);
+  return sendSuccess(req, res, { recorded: record, consents }, 201);
 });
 
 customersRouter.put("/:id", async (req, res) => {

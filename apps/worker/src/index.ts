@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import { computeSegmentation, lifecycleBullJobId } from "@custva/shared";
+import { canMessage, type ConsentState } from "@custva/shared";
 import { Queue, Worker, type JobsOptions } from "bullmq";
 import { randomUUID } from "node:crypto";
 import { Pool, type PoolClient } from "pg";
@@ -179,6 +180,27 @@ async function dispatchOne(
     customerName?: string;
   }
 ) {
+  /* Consent, re-read at the moment of sending — defect 7.
+     
+     The audience was scoped by consent when the campaign was built, but a
+     campaign can sit in the queue for hours and a customer can reply STOP in
+     that window. Every other check here is about cost or cadence and can be
+     retried; this one cannot be taken back once the message is out. */
+  const consent = await client.query<{
+    consent_state: ConsentState;
+    whatsapp_opt_in: boolean;
+  }>(
+    `SELECT consent_state, whatsapp_opt_in FROM customers WHERE id = $1 AND merchant_id = $2`,
+    [data.customerId, data.merchantId]
+  );
+  if (
+    !consent.rowCount ||
+    !consent.rows[0].whatsapp_opt_in ||
+    !canMessage(consent.rows[0].consent_state)
+  ) {
+    return;
+  }
+
   if (!(await withinCustomerFrequencyCap(client, data.merchantId, data.customerId))) {
     return;
   }
@@ -336,6 +358,7 @@ async function dispatchLifecycle(scheduleId: string) {
       mobile: string;
       customer_name: string;
       whatsapp_opt_in: boolean;
+      consent_state: ConsentState;
       template_name: string;
       meta_template_name: string | null;
       meta_status: string | null;
@@ -346,7 +369,7 @@ async function dispatchLifecycle(scheduleId: string) {
       buttons: Array<{ type: string; text: string; value: string }>;
       shop_name: string;
     }>(
-      `SELECT ls.id AS schedule_id, ls.merchant_id, ls.customer_id, c.mobile, c.name AS customer_name, c.whatsapp_opt_in,
+      `SELECT ls.id AS schedule_id, ls.merchant_id, ls.customer_id, c.mobile, c.name AS customer_name, c.whatsapp_opt_in, c.consent_state,
               t.name AS template_name, t.language_code, t.body, t.header_text, t.header_image_url,
               t.buttons, t.meta_template_name, t.meta_status, m.business_name AS shop_name
        FROM lifecycle_schedules ls
@@ -359,7 +382,11 @@ async function dispatchLifecycle(scheduleId: string) {
     if (!row.rowCount) return;
 
     const data = row.rows[0];
-    if (!data.whatsapp_opt_in) {
+    /* The last gate before a message leaves — defect 7. A customer can reply
+       STOP after the schedule was created, so consent is re-read at send time
+       rather than trusted from enrolment. Checked here as well as at enrolment
+       because these are different moments and only this one is irreversible. */
+    if (!data.whatsapp_opt_in || !canMessage(data.consent_state)) {
       await client.query(`UPDATE lifecycle_schedules SET status = 'cancelled' WHERE id = $1`, [
         scheduleId
       ]);

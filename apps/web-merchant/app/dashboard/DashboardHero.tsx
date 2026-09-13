@@ -16,6 +16,10 @@ export interface DashboardKpis {
     contactable: number;
     withRhythm: number;
   };
+  /* The consent gap. Every customer created before the ledger existed has no
+     record — which is not permission, and is the difference between a pilot
+     that can send and one that cannot. */
+  consent?: { granted: number; withdrawn: number; unknown: number };
   repeatCustomers: number;
 }
 

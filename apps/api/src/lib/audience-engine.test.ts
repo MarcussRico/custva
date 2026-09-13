@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   buildAudienceQuery,
   buildCustomerListQuery,
+  consentScopeSql,
   customerListFilterSchema,
 } from "./audience-engine.js";
 
@@ -57,12 +58,25 @@ describe("buildAudienceQuery", () => {
 
   it("respects opt-out even when manual includes are supplied", () => {
     const { sql } = buildAudienceQuery(MERCHANT, {}, [FOREIGN]);
-    assert.match(sql, /c\.whatsapp_opt_in = TRUE/);
+    assert.match(sql, /consent_state/);
     assert.doesNotMatch(
       orGroup(sql),
-      /whatsapp_opt_in/,
+      /consent_state|whatsapp_opt_in/,
       "consent must sit OUTSIDE the OR, or a manual include messages someone who opted out",
     );
+  });
+
+  it("never messages a customer who asked to stop", () => {
+    /* The one rule with no exceptions. Whether `unknown` may be messaged is
+       policy and may change; `withdrawn` may not, so this asserts the exclusion
+       survives whichever way the policy constant is set. */
+    const { sql } = buildAudienceQuery(MERCHANT, {}, [FOREIGN], []);
+    const scope = consentScopeSql("c");
+    assert.ok(
+      /consent_state <> 'withdrawn'/.test(scope) || /consent_state = 'granted'/.test(scope),
+      `consent scope must exclude withdrawn, got: ${scope}`,
+    );
+    assert.ok(sql.includes(scope), "the audience query must carry the consent scope verbatim");
   });
 
   it("keeps the merchant id as the first parameter", () => {
@@ -83,7 +97,7 @@ describe("buildAudienceQuery", () => {
   it("still scopes when there are no manual includes", () => {
     const { sql } = buildAudienceQuery(MERCHANT, { minSpend: 500 });
     assert.match(sql, /c\.merchant_id = \$1/);
-    assert.match(sql, /c\.whatsapp_opt_in = TRUE/);
+    assert.match(sql, /consent_state/);
     assert.doesNotMatch(sql, /OR c\.id = ANY/);
   });
 

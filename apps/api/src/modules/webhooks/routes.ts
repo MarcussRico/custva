@@ -2,7 +2,9 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { sendError, sendSuccess } from "../../lib/api-response.js";
 import { env, isProduction } from "../../config.js";
-import { query } from "../../lib/db.js";
+import { query, withTransaction } from "../../lib/db.js";
+import { classifyInbound } from "@custva/shared";
+import { findCustomersByMobile, recordConsent } from "../../lib/consent-service.js";
 
 export const webhookRouter: Router = Router();
 
@@ -41,6 +43,81 @@ function verifyWhatsAppSignature(req: Request, res: Response, next: NextFunction
   return next();
 }
 
+
+/**
+ * Inbound customer messages — the half of the webhook that was never read.
+ *
+ * Before this, the handler parsed `statuses` and ignored `messages` entirely,
+ * so a customer replying STOP was invisible: the message was acknowledged with
+ * a 200 and nothing changed. Custva kept messaging someone who had asked it to
+ * stop, which is the failure Meta suspends numbers for and the DPDP Act treats
+ * as processing without consent.
+ */
+interface InboundMessage {
+  id: string;
+  from: string;
+  timestamp?: string;
+  type?: string;
+  text?: { body?: string };
+  /* A tap on the template's own opt-out button arrives as one of these rather
+     than as typed text. Both carry the label the customer saw. */
+  button?: { text?: string; payload?: string };
+  interactive?: { button_reply?: { id?: string; title?: string } };
+}
+
+/** Whatever the customer actually communicated, however they sent it. */
+function inboundText(message: InboundMessage): string | null {
+  return (
+    message.text?.body ??
+    message.button?.text ??
+    message.button?.payload ??
+    message.interactive?.button_reply?.title ??
+    null
+  );
+}
+
+async function handleInboundMessages(messages: InboundMessage[]): Promise<void> {
+  for (const message of messages) {
+    const body = inboundText(message);
+    const action = classifyInbound(body);
+    if (!action) continue;
+
+    /* A number can be a customer of several merchants. A withdrawal is
+       addressed to the business that messaged them, and we cannot tell which
+       from the payload — so it is recorded against every merchant that holds
+       the number. Erring toward more withdrawal is the right direction. */
+    const customers = await findCustomersByMobile(message.from);
+    if (!customers.length) continue;
+
+    const occurredAt = message.timestamp
+      ? new Date(Number(message.timestamp) * 1000)
+      : new Date();
+
+    for (const customer of customers) {
+      await withTransaction((client) =>
+        recordConsent(client, {
+          merchantId: customer.merchantId,
+          customerId: customer.id,
+          action,
+          method: "whatsapp_reply",
+          source: "customer",
+          occurredAt,
+          /* The customer's own words, kept verbatim. If the record is ever
+             challenged, this is the artefact — not a paraphrase of it. The
+             message id also makes the insert idempotent across Meta's
+             redeliveries, via the unique index in migration 0023. */
+          evidence: {
+            providerMessageId: message.id,
+            from: message.from,
+            body,
+            messageType: message.type ?? "text"
+          }
+        })
+      );
+    }
+  }
+}
+
 webhookRouter.get("/whatsapp", (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
@@ -62,8 +139,11 @@ webhookRouter.post("/whatsapp", verifyWhatsAppSignature, async (req, res) => {
           status: "sent" | "delivered" | "read" | "failed";
           timestamp?: string;
         }>;
+        messages?: InboundMessage[];
       }
     | undefined;
+
+  await handleInboundMessages(value?.messages ?? []);
 
   const statuses = value?.statuses ?? [];
   for (const status of statuses) {

@@ -8,7 +8,7 @@ session; do not let it drift.
 |---|---|
 | **Last updated** | 2026-09-11 |
 | **Current phase** | **All phases complete (0, A, B, C, M, D, E).** The SRS is built, plus holdout measurement. Surfacing it in the product: customers list and dashboard done, 6 screens to go (§4b) |
-| **Next action** | Get Meta credentials. Then the admin template screen — templates cannot reach Meta any other way |
+| **Next action** | Get Meta credentials, then flip `CONSENT.allowUnknown` to false (§4c). Then the admin template screen — templates cannot reach Meta any other way |
 | **Blocking** | No write access to `Madan94/custva`. Work is on a fork, open as [PR #1](https://github.com/Madan94/custva/pull/1) |
 | **Decision needed** | Shared vs per-merchant WhatsApp number (§6). Blocks SRS schema work |
 
@@ -159,7 +159,7 @@ whole API process down.
 | 4 | **Webhooks are not idempotent.** Meta redelivers on any non-2xx or timeout; each redelivery re-inserts a `message_events` row and re-increments `campaigns.delivered_count` and `daily_merchant_metrics.messages_delivered`. Those inflated numbers are what the dashboard shows — and, once the SRS lands, an input to commission |
 | 5 | **A failed batch re-sends.** One BullMQ job carries a whole recipient list with `attempts: 5`. Send failures are caught per-recipient, but a DB error is not — so a failure at recipient 40 replays recipients 1-39, up to five times. Real money, and duplicate marketing messages are what destroy a number's quality rating |
 | 6 | **Template approval is a local flag with no relationship to Meta.** The only Graph endpoint touched is `/messages`. `approval_status = 'approved'` means someone clicked in the Custva admin. Worse, the name sent to Meta is the free-text merchant-facing `templates.name` ("Brownie Day 3"); Meta requires lowercase snake_case, pre-approved on that WABA. **With real credentials today, essentially every send fails.** This is the single thing between this repo and a working pilot |
-| 7 | **Consent cannot be proven.** `whatsapp_opt_in BOOLEAN NOT NULL DEFAULT TRUE`, hardcoded `TRUE` on insert. No timestamp, no method, no record of wording shown, no revocation path. The webhook reads `statuses` only and ignores `messages`, so a customer replying STOP is invisible. Meta requires explicit opt-in; DPDP requires it recorded and revocable |
+| 7 | ✅ **Fixed 2026-09-13 — see §4c.** **Consent cannot be proven.** `whatsapp_opt_in BOOLEAN NOT NULL DEFAULT TRUE`, hardcoded `TRUE` on insert. No timestamp, no method, no record of wording shown, no revocation path. The webhook reads `statuses` only and ignores `messages`, so a customer replying STOP is invisible. Meta requires explicit opt-in; DPDP requires it recorded and revocable |
 
 ### P2 / P3
 
@@ -689,6 +689,85 @@ Verified through the real stack against the seeded merchant (4 overdue of 8 with
 a rhythm) and against an empty merchant for the learning state; all five
 headline cases exercised directly; 112 tests pass; no horizontal overflow at
 390px.
+
+---
+
+## 4c. Consent — done 2026-09-13 (defect 7)
+
+Consent was `customers.whatsapp_opt_in BOOLEAN NOT NULL DEFAULT TRUE`,
+hardcoded TRUE on insert. That is not consent; it is an assumption stored in a
+column. Meta requires explicit opt-in before a template reaches anyone, and the
+DPDP Act requires it recorded — what was said, when, by what means — and
+revocable. A boolean answers none of that, and it cannot answer it *after* a
+complaint, which is the only time anyone asks.
+
+Worse, the webhook read `statuses` and ignored `messages` entirely, so **a
+customer replying STOP was invisible**. The message was acknowledged with a 200
+and nothing changed.
+
+### What now exists
+
+Migration `0023` adds an **append-only `consents` ledger** — action, method,
+source, the verbatim wording shown, a version tag for it, who recorded it, and
+JSONB evidence. `customers.consent_state` is a projection of that ledger, never
+written by hand. Nothing UPDATEs or DELETEs a ledger row; a withdrawal has to
+stay legible next to the grant it revoked.
+
+**Existing customers were backfilled as `unknown`, not `granted`.** Recording
+them as granted would write consent records for conversations that never
+happened — fabricating evidence, which is a worse failure than having none.
+`unknown` is a real third state that a boolean cannot express, and the product
+surfaces it rather than hiding it.
+
+| Surface | What it does |
+|---|---|
+| Entry form | Consent tickbox at the counter, labelled with the exact notice, stored verbatim with a version tag. Unticked stays `unknown` — silence is not agreement |
+| Dashboard | "5 of 8 customers have no recorded consent", with a link to exactly who |
+| Customers list | Consent column and filter (`Agreed` / `Not recorded` / `Asked to stop`) |
+| Customer page | Full evidence trail, quoting the customer's own words for anything they sent |
+| Webhook | Inbound `messages` parsed for STOP/START — text, button and interactive replies |
+| Audience engine | `consentScopeSql()`, one predicate every send path shares |
+| Lifecycle + worker | Consent re-read at enrolment *and* at send, because those are different moments and only the second is irreversible |
+
+### Verified end to end against the real stack
+
+```
+STOP from 919840112300      → ledger row + state withdrawn, audience 8 → 7
+same wamid ×3 (redelivery)  → still 1 ledger row
+"Please do not stop the friday offer!" → nothing changes (Rahul stays unknown)
+START via button reply      → granted, both prior rows kept in history
+a STOP dated BEFORE that    → recorded in the ledger, does NOT resurrect withdrawn
+counter grant via API       → ledger row with the notice text quoted back
+```
+
+**Substring matching is the trap.** "Do not stop making these brownies" contains
+"stop"; matching on `includes` would delete a real customer's consent on the
+strength of a compliment and nobody would ever find out why the messages
+stopped. Keywords are matched against the **whole** normalised message. Proven
+by reintroducing substring matching and watching exactly that one test fail.
+
+Tamil and Hindi opt-out keywords are included. These merchants are in Tamil
+Nadu and their customers do not all reply in English.
+
+**A bug found only by driving the real endpoint:** `recorded_by` took the JWT
+subject straight into a foreign key. A token whose user row does not exist
+returned a 500 and stored *nothing* — the optional metadata killing the record
+it was attached to. The insert now resolves the id through a subquery, so an
+unusable one becomes NULL instead of raising.
+
+### The one thing still open
+
+`CONSENT.allowUnknown` is **true**, deliberately and temporarily. Every customer
+predating the ledger is `unknown`; flipping it to false today would silently
+mute an entire book overnight and the merchant would experience it as "Custva
+stopped working". So the gap is surfaced in the product instead, to be closed at
+the counter.
+
+**It must be false before real Meta credentials go live.** At that point a send
+to an `unknown` customer is a message to someone who never agreed, and Meta's
+opt-in policy makes it the merchant's number that pays. One constant in
+`packages/shared/src/consent.ts`, and `canMessage` carries a test that changes
+meaning with it rather than breaking.
 
 ---
 

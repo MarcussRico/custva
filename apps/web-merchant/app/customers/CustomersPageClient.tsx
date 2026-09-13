@@ -20,6 +20,10 @@ export interface CustomerRow {
   segment: "first_time" | "loyal" | "at_risk" | "dormant" | null;
   expectedGapDays: string | number | null;
   expectedRevisitAt: string | null;
+  /* Consent state, from the append-only ledger. "unknown" means no record
+     exists — which is not the same as permission. */
+  consentState: "granted" | "withdrawn" | "unknown" | null;
+  consentUpdatedAt: string | null;
 }
 
 const SEGMENT_LABEL: Record<string, string> = {
@@ -48,7 +52,18 @@ const EMPTY_FILTERS = {
   tag: "",
   inactiveDaysExact: "",
   segment: "",
+  consent: "",
   overdueOnly: false
+};
+
+const CONSENT_STATES = ["granted", "withdrawn", "unknown"];
+
+/* Deliberately not "Opted in / Opted out / Unknown". A shop owner reads
+   "No consent recorded" and understands it; "Unknown" reads like a glitch. */
+const CONSENT_LABEL: Record<string, string> = {
+  granted: "Agreed",
+  withdrawn: "Asked to stop",
+  unknown: "Not recorded"
 };
 
 export function CustomersPageClient() {
@@ -59,6 +74,7 @@ export function CustomersPageClient() {
     () => ({
       ...EMPTY_FILTERS,
       segment: SEGMENTS.includes(search.get("segment") ?? "") ? search.get("segment")! : "",
+      consent: CONSENT_STATES.includes(search.get("consent") ?? "") ? search.get("consent")! : "",
       overdueOnly: search.get("overdueOnly") === "1" || search.get("overdueOnly") === "true"
     }),
     [search]
@@ -88,6 +104,7 @@ export function CustomersPageClient() {
     if (debouncedFilters.tag) count++;
     if (debouncedFilters.inactiveDaysExact.trim()) count++;
     if (debouncedFilters.segment) count++;
+    if (debouncedFilters.consent) count++;
     if (debouncedFilters.overdueOnly) count++;
     return count;
   }, [debouncedFilters]);
@@ -110,6 +127,7 @@ export function CustomersPageClient() {
         params.set("inactiveDaysExact", debouncedFilters.inactiveDaysExact.trim());
       }
       if (debouncedFilters.segment) params.set("segments", debouncedFilters.segment);
+      if (debouncedFilters.consent) params.set("consent", debouncedFilters.consent);
       if (debouncedFilters.overdueOnly) params.set("overdueOnly", "true");
       const res = await fetch(`/api/customers?${params}`);
       const json = (await res.json()) as {
@@ -202,6 +220,18 @@ export function CustomersPageClient() {
           </select>
         </div>
         <div className="merchant-filter-field">
+          <span className="merchant-filter-label">Consent</span>
+          <select
+            value={filters.consent}
+            onChange={(e) => setFilters({ ...filters, consent: e.target.value })}
+          >
+            <option value="">Any consent</option>
+            <option value="granted">Agreed</option>
+            <option value="unknown">Not recorded</option>
+            <option value="withdrawn">Asked to stop</option>
+          </select>
+        </div>
+        <div className="merchant-filter-field">
           <span className="merchant-filter-label">Overdue</span>
           <label className="merchant-filter-check">
             <input
@@ -235,6 +265,7 @@ export function CustomersPageClient() {
                 <th>Mobile</th>
                 <th>Status</th>
                 <th>Next visit due</th>
+                <th>Consent</th>
                 <th>Visits</th>
                 <th>Spend</th>
                 <th>Actions</th>
@@ -243,7 +274,7 @@ export function CustomersPageClient() {
             <tbody>
               {customers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="merchant-muted">
+                  <td colSpan={8} className="merchant-muted">
                     No customers match your filters.
                   </td>
                 </tr>
@@ -268,6 +299,13 @@ export function CustomersPageClient() {
                           usually every {Math.round(Number(c.expectedGapDays))}d
                         </small>
                       ) : null}
+                    </td>
+                    <td>
+                      <span
+                        className={`consent-pill consent-${c.consentState ?? "unknown"}`}
+                      >
+                        {CONSENT_LABEL[c.consentState ?? "unknown"]}
+                      </span>
                     </td>
                     <td>{c.totalVisits}</td>
                     <td>₹{Number(c.totalSpend).toLocaleString("en-IN")}</td>

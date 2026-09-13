@@ -44,6 +44,7 @@ export default async function MerchantDashboardPage() {
         contactable: number;
         withRhythm: number;
       };
+      consent?: { granted: number; withdrawn: number; unknown: number };
       repeatCustomers: number;
     }>("/analytics/dashboard");
     kpis = {
@@ -52,6 +53,7 @@ export default async function MerchantDashboardPage() {
       todayRepeatRevenue: stats.todayRepeatRevenue ?? 0,
       last30Days: stats.last30Days,
       overdue: stats.overdue,
+      consent: stats.consent,
       repeatCustomers: stats.repeatCustomers ?? 0
     };
   } catch {

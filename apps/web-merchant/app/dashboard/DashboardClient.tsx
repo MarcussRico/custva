@@ -5,6 +5,7 @@ import { useState } from "react";
 import { DashboardHero, DashboardToday, type DashboardKpis } from "./DashboardHero";
 import { CustomerQuickEntryForm } from "./CustomerQuickEntryForm";
 import { OverdueNow, type OverdueCustomer } from "./OverdueNow";
+import { ConsentGap } from "./ConsentGap";
 
 export interface RecentCustomer {
   id: string;
@@ -41,6 +42,8 @@ export function DashboardClient({
       {phoneDigits.length === 0 && (
         <OverdueNow customers={overdueCustomers} total={overdueTotal} />
       )}
+
+      {phoneDigits.length === 0 && <ConsentGap consent={kpis.consent} />}
 
       <DashboardToday kpis={kpis} />
       <CustomerQuickEntryForm onPhoneDigitsChange={setPhoneDigits} />

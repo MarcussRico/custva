@@ -1,5 +1,25 @@
 import { z } from "zod";
+import { CONSENT } from "@custva/shared";
 import { autoTagFilterSql, autoTagsSql } from "./customer-tags.js";
+
+/**
+ * The consent predicate every send is scoped by — defect 7.
+ *
+ * `withdrawn` is excluded unconditionally and there is no branch that can
+ * re-include it: not a manual include, not an admin override. Whether
+ * `unknown` may be messaged is policy, and it lives on the shared constant so
+ * flipping it for the Meta go-live changes every send path at once instead of
+ * five places that have to be found.
+ *
+ * The legacy boolean is kept in the AND. It is a mirror of consent_state and
+ * should never disagree, but an extra condition can only ever exclude someone
+ * — the safe direction for a check about permission.
+ */
+export function consentScopeSql(alias = "c"): string {
+  return CONSENT.allowUnknown
+    ? `${alias}.consent_state <> 'withdrawn' AND ${alias}.whatsapp_opt_in = TRUE`
+    : `${alias}.consent_state = 'granted' AND ${alias}.whatsapp_opt_in = TRUE`;
+}
 
 export const audienceRulesSchema = z.object({
   inactiveDaysGte: z.number().int().nonnegative().optional(),
@@ -45,7 +65,7 @@ export function buildAudienceQuery(
      `OR c.id = ANY(...)` branch escaped merchant scoping and opt-in together,
      so a caller could message another merchant's customers and people who had
      opted out. */
-  const scope: string[] = ["c.merchant_id = $1", "c.whatsapp_opt_in = TRUE"];
+  const scope: string[] = ["c.merchant_id = $1", consentScopeSql("c")];
   const conditions: string[] = [];
   const params: unknown[] = [merchantId];
   let idx = 2;
@@ -199,6 +219,7 @@ export const customerListFilterSchema = z.object({
     )
     .optional(),
   overdueOnly: z.coerce.boolean().optional(),
+  consent: z.enum(["granted", "withdrawn", "unknown"]).optional(),
   sortBy: z
     .enum(["name", "totalSpend", "totalVisits", "lastVisit", "createdAt", "updatedAt", "overdue"])
     .default("updatedAt"),
@@ -305,6 +326,13 @@ export function buildCustomerListQuery(
       `c.expected_revisit_at IS NOT NULL AND c.expected_revisit_at <= NOW()`
     );
   }
+  /* Lets a merchant work the consent gap directly: filter to the customers with
+     no record and collect it next time they come in. */
+  if (filters.consent) {
+    conditions.push(`c.consent_state = $${idx}`);
+    params.push(filters.consent);
+    idx++;
+  }
   if (filters.birthdayMonth != null) {
     conditions.push(`EXTRACT(MONTH FROM c.created_at) = $${idx}`);
     params.push(filters.birthdayMonth);
@@ -348,6 +376,8 @@ export function buildCustomerListQuery(
              c.last_visit AS "lastVisit", c.created_at AS "createdAt", c.updated_at AS "updatedAt",
              c.segment, c.expected_gap_days AS "expectedGapDays",
              c.expected_revisit_at AS "expectedRevisitAt",
+             c.consent_state AS "consentState",
+             c.consent_updated_at AS "consentUpdatedAt",
              ${autoTagsSql("c")} AS "autoTags"
       FROM customers c
       WHERE ${where}

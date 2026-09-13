@@ -5,6 +5,14 @@ import { useCallback, useEffect, useState } from "react";
 import { CustomerPrefixTypeahead } from "./CustomerPrefixTypeahead";
 import { ReturningCustomerCard, type LookupCustomer } from "./ReturningCustomerCard";
 
+/* The exact words staff are meant to say, stored verbatim with every consent
+   record. Consent is to a specific statement — if this wording changes, the
+   version tag is what proves prior consent was to the old one. Change the
+   version whenever the text changes. */
+const CONSENT_NOTICE =
+  "Customer agreed to receive offers and reminders from this shop on WhatsApp.";
+const CONSENT_NOTICE_VERSION = "counter-v1";
+
 export function CustomerQuickEntryForm({
   onPhoneDigitsChange
 }: {
@@ -18,12 +26,19 @@ export function CustomerQuickEntryForm({
   const [age, setAge] = useState("");
   const [lookupResults, setLookupResults] = useState<LookupCustomer[]>([]);
   const [selected, setSelected] = useState<LookupCustomer | null>(null);
+  const [consentGiven, setConsentGiven] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   const phoneDigits = phone.replace(/\D/g, "");
   const isReturning = Boolean(selected);
+  /* Consent is a state of the person, not of this form. Someone who already
+     agreed is not asked again, and someone who asked to stop is not offered a
+     tickbox that would quietly undo it — that needs a deliberate act on their
+     record. Only the genuinely unrecorded get the prompt. */
+  const consentState = selected?.consentState ?? null;
+  const askForConsent = !selected || consentState === "unknown" || consentState == null;
 
   useEffect(() => {
     onPhoneDigitsChange?.(phoneDigits);
@@ -76,6 +91,7 @@ export function CustomerQuickEntryForm({
     setAge("");
     setSelected(null);
     setLookupResults([]);
+    setConsentGiven(false);
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -91,6 +107,17 @@ export function CustomerQuickEntryForm({
       };
       if (pincode.trim()) payload.pincode = pincode.trim();
       if (age.trim()) payload.age = Number(age);
+      /* Sent only when the box was actually ticked. An unticked box is not a
+         refusal, it is silence — and silence has to stay silence, or the
+         ledger fills up with consent nobody gave. */
+      if (askForConsent && consentGiven) {
+        payload.consent = {
+          granted: true,
+          method: "counter_verbal",
+          noticeText: CONSENT_NOTICE,
+          noticeVersion: CONSENT_NOTICE_VERSION
+        };
+      }
 
       const res = await fetch("/api/customers", {
         method: "POST",
@@ -192,6 +219,30 @@ export function CustomerQuickEntryForm({
           <CustomerPrefixTypeahead items={lookupResults} onSelect={selectCustomer} />
         )}
         {selected && <ReturningCustomerCard customer={selected} />}
+
+        {askForConsent ? (
+          <label className="merchant-consent-check">
+            <input
+              type="checkbox"
+              checked={consentGiven}
+              onChange={(e) => setConsentGiven(e.target.checked)}
+            />
+            <span>
+              <strong>{CONSENT_NOTICE}</strong>
+              <small>
+                Tick only if you actually asked and they said yes. Leaving it
+                unticked is fine — they simply will not be messaged until they
+                agree.
+              </small>
+            </span>
+          </label>
+        ) : (
+          <p className={`merchant-consent-state merchant-consent-state--${consentState}`}>
+            {consentState === "withdrawn"
+              ? "This customer asked to stop receiving messages. Recording the visit will not message them."
+              : "Already agreed to WhatsApp messages."}
+          </p>
+        )}
 
         <div className="merchant-form-actions">
           <button type="submit" className="merchant-btn merchant-btn--primary" disabled={loading}>

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { ConsentPanel, type ConsentRecord } from "./ConsentPanel";
 
 interface Visit {
   billingAmount: number;
@@ -21,23 +22,27 @@ interface CustomerDetail {
   lastVisit: string | null;
   autoTags: string[];
   visits: Visit[];
+  consentState: "granted" | "withdrawn" | "unknown" | null;
+  consents: ConsentRecord[];
 }
 
 export function CustomerDetailClient({ customerId }: { customerId: string }) {
   const [customer, setCustomer] = useState<CustomerDetail | null>(null);
   const [allVisits, setAllVisits] = useState<Visit[]>([]);
 
-  useEffect(() => {
-    void (async () => {
-      const res = await fetch(`/api/customers/${customerId}`);
-      const json = (await res.json()) as { success: boolean; data?: CustomerDetail };
-      if (json.success && json.data) setCustomer(json.data);
+  const load = useCallback(async () => {
+    const res = await fetch(`/api/customers/${customerId}`);
+    const json = (await res.json()) as { success: boolean; data?: CustomerDetail };
+    if (json.success && json.data) setCustomer(json.data);
 
-      const visitsRes = await fetch(`/api/customers/${customerId}/visits?limit=100`);
-      const visitsJson = (await visitsRes.json()) as { success: boolean; data?: { items: Visit[] } };
-      if (visitsJson.success && visitsJson.data) setAllVisits(visitsJson.data.items);
-    })();
+    const visitsRes = await fetch(`/api/customers/${customerId}/visits?limit=100`);
+    const visitsJson = (await visitsRes.json()) as { success: boolean; data?: { items: Visit[] } };
+    if (visitsJson.success && visitsJson.data) setAllVisits(visitsJson.data.items);
   }, [customerId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   if (!customer) return <p className="merchant-muted">Loading customer...</p>;
 
@@ -59,6 +64,13 @@ export function CustomerDetailClient({ customerId }: { customerId: string }) {
         <p><strong>Visits:</strong> {customer.totalVisits}</p>
         <p><strong>Tags:</strong> {(customer.autoTags ?? []).join(", ") || "—"}</p>
       </section>
+      <ConsentPanel
+        customerId={customerId}
+        state={customer.consentState}
+        records={customer.consents ?? []}
+        onChange={() => void load()}
+      />
+
       <section className="merchant-panel">
         <h2>Purchase history at shop</h2>
         <table className="merchant-table">

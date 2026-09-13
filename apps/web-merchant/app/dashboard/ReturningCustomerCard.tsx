@@ -7,6 +7,7 @@ export interface LookupCustomer {
   totalSpend: number;
   totalVisits: number;
   lastVisit: string | null;
+  consentState?: "granted" | "withdrawn" | "unknown" | null;
 }
 
 export function ReturningCustomerCard({ customer }: { customer: LookupCustomer }) {

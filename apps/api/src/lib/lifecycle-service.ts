@@ -1,6 +1,7 @@
 import type { PoolClient } from "pg";
 import { randomUUID } from "node:crypto";
 import { lifecycleBullJobId, rhythmNudgeOffsetsDays } from "@custva/shared";
+import { canMessage, type ConsentState } from "@custva/shared";
 import { getLifecycleDispatchQueue } from "./queue.js";
 
 export const LIFECYCLE_DAYS = ["day_0", "day_3", "day_7", "day_14"] as const;
@@ -92,11 +93,23 @@ export async function enrollAfterVisit(
   const tier = tierFromVisitCount(input.totalVisitsAfter);
   const visitGroup = visitGroupFromTier(tier);
 
-  const optIn = await client.query<{ whatsapp_opt_in: boolean }>(
-    `SELECT whatsapp_opt_in FROM customers WHERE id = $1 AND merchant_id = $2`,
+  /* Consent gate — defect 7. This used to read the `whatsapp_opt_in` boolean,
+     which was hardcoded TRUE on insert and therefore always passed. It now
+     asks the ledger's projection, so a customer who replied STOP is never
+     enrolled into a lifecycle journey in the first place, rather than being
+     enrolled and filtered later by a check that might be missed. */
+  const consent = await client.query<{
+    consent_state: ConsentState;
+    whatsapp_opt_in: boolean;
+  }>(
+    `SELECT consent_state, whatsapp_opt_in FROM customers WHERE id = $1 AND merchant_id = $2`,
     [input.customerId, input.merchantId]
   );
-  if (!optIn.rowCount || !optIn.rows[0].whatsapp_opt_in) {
+  const consentOk =
+    consent.rowCount &&
+    consent.rows[0].whatsapp_opt_in &&
+    canMessage(consent.rows[0].consent_state);
+  if (!consentOk) {
     await client.query(
       `UPDATE customers SET lifecycle_tier = $1, updated_at = NOW() WHERE id = $2`,
       [tier, input.customerId]
