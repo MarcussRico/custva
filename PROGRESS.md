@@ -1002,6 +1002,65 @@ per-process, so running several workers multiplies the rate.
 
 ---
 
+## 4g. Design system port — done 2026-09-13
+
+The marketing site was distinctive and the product a merchant uses every day was
+a generic admin panel: Poppins on `#f4f6fb`, cool greys, navy-and-white, no
+relationship to the thing that got them to sign up. A prospect spends thirty
+seconds on the landing page and thirty minutes in the dashboard, and only the
+thirty seconds looked like Custva.
+
+Done as a **token retune plus one narrow section**, not a rewrite. Nothing
+restructures the 2,500 lines of layout that already work.
+
+| | Before | After |
+|---|---|---|
+| Body | Poppins | Instrument Sans |
+| Headings | Poppins | Gabarito |
+| Readings, labels | Poppins | DM Mono, tabular figures |
+| Ground | `#f4f6fb` cool grey | `#fffcf2` paper |
+| Navy | `#0b1f3a` | `#011244` — the logo's own |
+| Yellow | `#ffd400` | `#fdd304` — the logo's own |
+| Neutrals | cool (`#6b7280`, `#111827`) | warmed and tinted toward the navy |
+
+Same lightness steps on the greys, so nothing in the existing CSS shifted
+contrast when the hue changed.
+
+**Typeface roles**, following the landing page's own rule. Gabarito on headings,
+because the logomark is built from rounded terminals and a circular arc and the
+display face should answer to it. DM Mono only on genuine instrument readings —
+a count, a figure, a column header — never on navigation or buttons.
+
+**Two things caught by looking rather than by building:**
+
+- The `BROUGHT BACK BY CUSTVA` label vanished. The shared uppercase-label rule
+  set `color: var(--gray-500)`, which is now itself a navy, and the hero tile is
+  navy. Dark on dark. That rule no longer touches the hero, which takes the
+  family and none of the colour.
+- `32 days late` in mono read like a log line. It is a sentence with a number in
+  it, not a reading. Reverted to Instrument with tabular figures — the alignment
+  was the part actually doing the work.
+
+Recharts takes hex, not CSS variables, so the analytics palette was restated in
+one place in `AnalyticsClient` rather than left on the old approximated values.
+
+Contrast measured on the rendered page, not eyeballed: table headers, KPI
+labels, muted body and the consent notice all land at **6.5–6.8:1**, comfortably
+past AA. Two 1.00:1 readings turned out to be the probe failing on a gradient
+and on a translucent layer — confirmed legible by sampling the actual painted
+pixels rather than trusting the number.
+
+Focus rings added where there were none (buttons, sidebar links, every form
+control), in the brand yellow, which on paper is both legible and on-brand.
+Buttons lift 1px under the cursor — one shared idea with the landing page's card
+tilt, used once rather than scattered, and disabled under
+`prefers-reduced-motion`.
+
+Login through dashboard is now one continuous system. The landing page itself is
+untouched.
+
+---
+
 ## 5. Proposal — holdout groups
 
 **The problem with Phase B on its own.** Last-touch attribution says *"they got

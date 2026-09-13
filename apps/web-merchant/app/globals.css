@@ -37,23 +37,35 @@
    DESIGN TOKENS
 ════════════════════════════════════════════════════ */
 :root {
-  /* Brand core */
-  --custva-yellow: #ffd400;
-  --custva-yellow-hover: #e6bf00;
-  --custva-yellow-light: rgba(255, 212, 0, 0.12);
-  --custva-yellow-border: rgba(255, 212, 0, 0.35);
+  /* Brand core — the true values, recovered from the logo artwork rather than
+     approximated. The product used #ffd400/#0b1f3a, close enough to look
+     deliberate on its own and visibly wrong beside the marketing site. */
+  --custva-yellow: #fdd304;
+  --custva-yellow-hover: #e4be03;
+  --custva-yellow-light: rgba(253, 211, 4, 0.14);
+  --custva-yellow-border: rgba(253, 211, 4, 0.38);
   --custva-black: #0a0a0a;
-  --custva-dark-blue: #0b1f3a;
+  --custva-dark-blue: #011244;
   --custva-white: #ffffff;
 
-  /* Light-theme neutrals */
-  --gray-50:  #f9fafb;
-  --gray-100: #f3f4f6;
-  --gray-200: #e5e7eb;
-  --gray-300: #d1d5db;
-  --gray-500: #6b7280;
-  --gray-700: #374151;
-  --gray-900: #111827;
+  /* The ground. A warm near-white rather than a cool grey — it is what lets
+     the yellow sit at full strength without going muddy, and it is the single
+     change that stops the product reading as a stock admin panel. */
+  --paper:      #fffcf2;
+  --paper-deep: #fff2cc;
+  --coral:      #ff5c3a;
+
+  /* Neutrals, warmed and tinted toward the brand navy. Cool greys (#6b7280,
+     #111827) beside a warm ground read as two different products. Same
+     lightness steps, so nothing in 2,500 lines of existing CSS shifts
+     contrast. */
+  --gray-50:  #fbf9f2;
+  --gray-100: #f4f1e8;
+  --gray-200: #e7e2d6;
+  --gray-300: #d3cec1;
+  --gray-500: #4d5a80;
+  --gray-700: #2c3757;
+  --gray-900: #011244;
 
   /* Radii */
   --r-sm: 8px;
@@ -81,8 +93,12 @@
 
 html { scroll-behavior: smooth; }
 
+/* Instrument Sans, not Poppins. Poppins-everywhere was the loudest tell that
+   the product and the marketing site were built by different people: a
+   prospect spends thirty seconds on the landing page and thirty minutes in
+   here, and only the thirty seconds looked like Custva. */
 html, body {
-  font-family: var(--font-poppins), 'Poppins', Arial, sans-serif;
+  font-family: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
   background: #ffffff;
   color: var(--gray-900);
   -webkit-font-smoothing: antialiased;
@@ -1631,4 +1647,178 @@ ul { list-style: none; }
   margin: 0.2rem 0 0;
   font-size: 0.78rem;
   color: var(--gray-500);
+}
+
+/* ════════════════════════════════════════════════════
+   PRODUCT DESIGN SYSTEM
+   Bringing the merchant app onto the landing page's identity.
+
+   The marketing site was distinctive and the product a merchant uses every
+   day was a generic navy-and-white admin panel — Poppins on #f4f6fb, cool
+   greys, no relationship to the thing that got them to sign up. The tokens
+   above now carry the brand values; this section is the part that cannot be
+   expressed as a token: which typeface does which job, and what the surfaces
+   are made of.
+
+   Deliberately additive and narrow. Nothing here restructures the 2,500 lines
+   of layout that already work.
+════════════════════════════════════════════════════ */
+
+/* ── Typeface roles ─────────────────────────────────
+   Gabarito carries headings, because the logomark is built from rounded
+   terminals and a circular arc and the display face should answer to it.
+   Instrument Sans carries everything read in quantity. DM Mono appears only
+   on genuine instrument readings — a count, a figure, a day offset — never on
+   navigation or buttons. */
+.merchant-main h1,
+.merchant-main h2,
+.merchant-main h3,
+.merchant-page-header h1,
+.merchant-panel h2,
+.merchant-hero-headline,
+.merchant-topbar-title {
+  font-family: var(--font-gabarito), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.015em;
+}
+
+.merchant-page-header h1 { font-size: 1.6rem; font-weight: 700; }
+.merchant-panel h2 { font-size: 1.15rem; font-weight: 700; color: var(--custva-dark-blue); }
+
+/* Readings, set in mono and tabular so a column of figures aligns on the
+   decimal and a merchant can scan it rather than read it. */
+.merchant-hero-proof strong,
+.merchant-today-stat strong,
+.merchant-kpi strong,
+.merchant-audience-summary strong {
+  font-family: var(--font-dm-mono), ui-monospace, SFMono-Regular, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* Not mono — that would shout — but aligned, which is the useful half.
+   "32 days late" went to mono in the first pass and read like a log line: it
+   is a sentence with a number in it, not a reading. The column still lines up
+   because tabular figures are the part that was actually doing the work. */
+.merchant-table td,
+.merchant-overdue-when strong { font-variant-numeric: tabular-nums; }
+
+/* Eyebrows and column headers are the one place small-caps mono earns its
+   keep: they are labels on instruments, not prose. */
+.merchant-eyebrow,
+.merchant-table th,
+.merchant-today-stat span,
+.merchant-kpi span,
+.merchant-filter-label {
+  font-family: var(--font-dm-mono), ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+}
+
+/* The hero tile sits on navy, so it takes the family and none of the colour.
+   Folding it into the rule above painted --gray-500 — which is now itself a
+   navy — onto a navy ground, and the label vanished. */
+.merchant-hero-proof span {
+  font-family: var(--font-dm-mono), ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+}
+
+/* ── Surfaces ───────────────────────────────────────
+   Paper ground, white panels floating on it. The old cool grey (#f4f6fb) made
+   white panels nearly invisible; against paper they read as cards on a desk,
+   which is also the metaphor the landing page's tilt animation uses. */
+.merchant-app-layout { background: var(--paper); }
+
+.merchant-sidebar {
+  background: var(--paper);
+  border-right: 1px solid var(--gray-200);
+}
+
+.merchant-panel {
+  border-color: var(--gray-200);
+  border-radius: var(--r-md);
+  box-shadow: 0 1px 2px rgba(1, 18, 68, 0.04);
+}
+
+.merchant-today-stat,
+.merchant-kpi {
+  background: #fff;
+  border-color: var(--gray-200);
+}
+
+/* ── Navigation ─────────────────────────────────────
+   The active item was a flat pale-yellow block, which on paper loses almost
+   all of its contrast against the ground. A deeper paper fill plus a solid
+   yellow rule marks position without relying on the fill alone. */
+.merchant-sidebar-link {
+  border-left: 3px solid transparent;
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.merchant-sidebar-link:hover {
+  background: var(--paper-deep);
+}
+
+.merchant-sidebar-link--active {
+  background: var(--paper-deep);
+  border-left-color: var(--custva-yellow);
+  color: var(--custva-dark-blue);
+}
+
+.merchant-topbar {
+  border-bottom-color: var(--custva-yellow);
+}
+
+.merchant-topbar-sub {
+  font-family: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.01em;
+}
+
+/* ── Controls ───────────────────────────────────────
+   One shared idea with the landing page: things lift slightly under the
+   cursor. Used once, on buttons, rather than scattered — the landing page
+   spends its motion budget on the card tilt and this should not compete. */
+.merchant-btn {
+  transition: transform var(--transition), background var(--transition),
+    box-shadow var(--transition);
+}
+
+.merchant-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.merchant-btn--primary:hover:not(:disabled) {
+  box-shadow: 0 3px 10px rgba(1, 18, 68, 0.18);
+}
+
+.merchant-btn--secondary:hover:not(:disabled) {
+  background: var(--paper-deep);
+  border-color: var(--custva-yellow-border);
+}
+
+/* Focus has to survive a design pass. Yellow on paper is legible and is the
+   brand's own colour, so it does double duty. */
+.merchant-btn:focus-visible,
+.merchant-sidebar-link:focus-visible,
+.merchant-form-grid input:focus-visible,
+.merchant-form-grid select:focus-visible,
+.merchant-filters input:focus-visible,
+.merchant-filters select:focus-visible,
+.merchant-quick-entry input:focus-visible {
+  outline: 2px solid var(--custva-yellow-hover);
+  outline-offset: 2px;
+}
+
+.merchant-form-grid input:focus,
+.merchant-form-grid select:focus,
+.merchant-quick-entry input:focus {
+  border-color: var(--custva-dark-blue);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .merchant-btn { transition: none; }
+  .merchant-btn:hover:not(:disabled) { transform: none; }
 }

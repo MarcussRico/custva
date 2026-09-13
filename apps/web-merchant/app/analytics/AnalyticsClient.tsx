@@ -18,7 +18,14 @@ import {
   Cell
 } from "recharts";
 
-const COLORS = ["#0b1f3a", "#ffd400", "#133460", "#b54708", "#027a48"];
+/* Recharts takes hex, not CSS variables, so the brand palette has to be
+   restated here. These are the true logo values (#011244 / #fdd304) plus the
+   coral that keeps navy-and-yellow from reading as a warning sign — the same
+   five the landing page uses. Kept in one place so a chart cannot drift. */
+const COLORS = ["#011244", "#fdd304", "#4d5a80", "#ff5c3a", "#0b7d4d"];
+const INK = COLORS[0];
+const YELLOW = COLORS[1];
+const INK_SOFT = COLORS[2];
 
 interface DashboardData {
   totalCustomers: number;
@@ -90,8 +97,8 @@ export function AnalyticsClient({
             <YAxis />
             <Tooltip />
             <Legend />
-            <Area type="monotone" dataKey="visits" stroke="#0b1f3a" fill="#133460" name="Visits" />
-            <Area type="monotone" dataKey="revenue" stroke="#ffd400" fill="#fff3bf" name="Revenue" />
+            <Area type="monotone" dataKey="visits" stroke={INK} fill={INK_SOFT} name="Visits" />
+            <Area type="monotone" dataKey="revenue" stroke={YELLOW} fill="#fff2cc" name="Revenue" />
           </AreaChart>
         </ResponsiveContainer>
       </section>
@@ -102,8 +109,8 @@ export function AnalyticsClient({
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
               <Pie data={[{ name: "New", value: customers.newVsRepeat.newCustomers }, { name: "Repeat", value: customers.newVsRepeat.repeatCustomers }]} dataKey="value" nameKey="name" outerRadius={80} label>
-                <Cell fill="#0b1f3a" />
-                <Cell fill="#ffd400" />
+                <Cell fill={INK} />
+                <Cell fill={YELLOW} />
               </Pie>
               <Tooltip />
             </PieChart>
@@ -118,7 +125,7 @@ export function AnalyticsClient({
               <XAxis dataKey="name" />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="value" fill="#133460" />
+              <Bar dataKey="value" fill={INK_SOFT} />
             </BarChart>
           </ResponsiveContainer>
         </section>
@@ -132,7 +139,7 @@ export function AnalyticsClient({
             <XAxis dataKey="name" />
             <YAxis />
             <Tooltip />
-            <Bar dataKey="totalSpend" fill="#0b1f3a" name="Spend (INR)" />
+            <Bar dataKey="totalSpend" fill={INK} name="Spend (INR)" />
           </BarChart>
         </ResponsiveContainer>
       </section>
@@ -146,7 +153,7 @@ export function AnalyticsClient({
             <YAxis />
             <Tooltip />
             <Legend />
-            <Line type="monotone" dataKey="sentCount" stroke="#0b1f3a" name="Sent" />
+            <Line type="monotone" dataKey="sentCount" stroke={INK} name="Sent" />
             <Line type="monotone" dataKey="deliveredCount" stroke="#027a48" name="Delivered" />
             <Line type="monotone" dataKey="failedCount" stroke="#b42318" name="Failed" />
           </LineChart>
@@ -161,7 +168,7 @@ export function AnalyticsClient({
               <XAxis dataKey="pincode" />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="count" fill="#ffd400" />
+              <Bar dataKey="count" fill={YELLOW} />
             </BarChart>
           </ResponsiveContainer>
         </section>
