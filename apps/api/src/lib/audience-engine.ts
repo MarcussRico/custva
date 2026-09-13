@@ -68,7 +68,11 @@ export function buildAudienceQuery(
   merchantId: string,
   rules: AudienceRules,
   manualIncludeIds: string[] = [],
-  manualExcludeIds: string[] = []
+  manualExcludeIds: string[] = [],
+  /* `ignoreConsent` is for *counting who was left out*, never for sending.
+     Nothing on a send path may pass it, and the tenancy scope is unaffected
+     either way — a query built with it still cannot cross a merchant. */
+  options: { ignoreConsent?: boolean } = {}
 ): AudienceQueryResult {
   /* `scope` is non-negotiable and always ANDed: tenancy and consent. `conditions`
      holds the audience rules, which a manual include is allowed to bypass.
@@ -76,7 +80,8 @@ export function buildAudienceQuery(
      `OR c.id = ANY(...)` branch escaped merchant scoping and opt-in together,
      so a caller could message another merchant's customers and people who had
      opted out. */
-  const scope: string[] = ["c.merchant_id = $1", consentScopeSql("c")];
+  const scope: string[] = ["c.merchant_id = $1"];
+  if (!options.ignoreConsent) scope.push(consentScopeSql("c"));
   const conditions: string[] = [];
   const params: unknown[] = [merchantId];
   let idx = 2;

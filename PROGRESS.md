@@ -8,7 +8,7 @@ session; do not let it drift.
 |---|---|
 | **Last updated** | 2026-09-11 |
 | **Current phase** | **All phases complete (0, A, B, C, M, D, E).** The SRS is built, plus holdout measurement. Surfacing it in the product: customers list and dashboard done, 6 screens to go (§4b) |
-| **Next action** | Get Meta credentials. Everything else is built: submit the templates from the admin screen (§4h), then flip `CONSENT.allowUnknown` to false (§4c) |
+| **Next action** | Get Meta credentials, submit the templates from the admin screen (§4h), then verify end to end with `scripts/seed-pilot-test.mjs`. Consent is already strict (§4c) |
 | **Defects** | All 13 from the 8 Sep review are closed (§4c, §4e, §4f) |
 | **Blocking** | No write access to `Madan94/custva`. Work is on a fork, open as [PR #1](https://github.com/Madan94/custva/pull/1) |
 | **Decision needed** | Shared vs per-merchant WhatsApp number (§6). Blocks SRS schema work |
@@ -756,19 +756,42 @@ returned a 500 and stored *nothing* — the optional metadata killing the record
 it was attached to. The insert now resolves the id through a subquery, so an
 unusable one becomes NULL instead of raising.
 
-### The one thing still open
+### Closed 2026-09-13 — `allowUnknown` is now false
 
-`CONSENT.allowUnknown` is **true**, deliberately and temporarily. Every customer
-predating the ledger is `unknown`; flipping it to false today would silently
-mute an entire book overnight and the merchant would experience it as "Custva
-stopped working". So the gap is surfaced in the product instead, to be closed at
-the counter.
+A customer with no consent record is no longer messageable by any path. Done
+before credentials rather than after: nothing has ever sent, so there is no live
+behaviour to preserve, and this is the cheapest moment to be strict. Doing it
+later would have meant deciding to *stop* messaging people the product was
+already messaging.
 
-**It must be false before real Meta credentials go live.** At that point a send
-to an `unknown` customer is a message to someone who never agreed, and Meta's
-opt-in policy makes it the merchant's number that pays. One constant in
-`packages/shared/src/consent.ts`, and `canMessage` carries a test that changes
-meaning with it rather than breaking.
+Effect on the seeded merchant, measured rather than predicted:
+
+```
+before   reachable 7   (2 granted + 5 with no record)
+after    reachable 2   excluded: 5 no record, 1 asked to stop
+```
+
+**The campaign preview had to change with it.** It used to report the consent
+split of the audience it returned — which, once `unknown` is excluded, is always
+"all granted" and says nothing. A merchant would have seen the count drop by
+five with no explanation anywhere on screen. It now counts who matched the rules
+and was held back, and says so:
+
+> 2 customers match · 1 Long gone · 1 Overdue
+> *1 more match these rules but have no consent record, so they are left out.*
+
+And where every match is held back, "No customers match these rules" would have
+been both wrong and demoralising; it now says how many matched and why none of
+them can be reached.
+
+That count needed `buildAudienceQuery(..., { ignoreConsent: true })`. The flag
+exists only for counting exclusions, never for sending — the tenancy scope is
+untouched by it, and a test asserts both halves.
+
+`canMessage("unknown")` is now asserted as a literal `false` rather than against
+the constant. While the policy was open, tracking the constant kept the test
+honest; now that it is settled, a test that follows the constant would silently
+approve flipping it back.
 
 ---
 

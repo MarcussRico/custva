@@ -75,11 +75,18 @@ describe("canMessage", () => {
     assert.equal(canMessage("granted"), true);
   });
 
-  it("follows the documented policy for customers with nothing recorded", () => {
-    /* Asserted against the constant rather than a literal, so flipping the
-       policy for the Meta go-live updates this test's meaning rather than
-       breaking it — and the assertion below is what actually guards the flip. */
-    assert.equal(canMessage("unknown"), CONSENT.allowUnknown);
+  it("never messages someone with no consent record", () => {
+    /* The Meta go-live position, now settled. A send to an `unknown` customer
+       is a message to someone who never agreed: Meta treats it as an opt-in
+       violation and the DPDP Act as processing without consent, and it is the
+       merchant's own number that absorbs the complaint.
+       
+       Asserted as a literal rather than against the constant. While the policy
+       was still open, comparing to `CONSENT.allowUnknown` let the test track it;
+       now that it is decided, a test that follows the constant would silently
+       approve flipping it back. */
+    assert.equal(canMessage("unknown"), false);
+    assert.equal(CONSENT.allowUnknown, false);
   });
 
   it("keeps withdrawal absolute regardless of the unknown policy", () => {

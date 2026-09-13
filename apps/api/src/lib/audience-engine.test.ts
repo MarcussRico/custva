@@ -67,6 +67,22 @@ describe("buildAudienceQuery", () => {
     );
   });
 
+  it("excludes customers with no consent record", () => {
+    /* Since CONSENT.allowUnknown went false, the scope demands a positive
+       grant rather than merely the absence of a withdrawal. */
+    assert.match(consentScopeSql("c"), /consent_state = 'granted'/);
+    const { sql } = buildAudienceQuery(MERCHANT, {});
+    assert.ok(sql.includes(consentScopeSql("c")));
+  });
+
+  it("counts who was left out without ever loosening the tenancy scope", () => {
+    /* `ignoreConsent` exists only so the preview can say "5 more matched but
+       have no consent record". It must never widen anything else. */
+    const { sql } = buildAudienceQuery(MERCHANT, {}, [], [], { ignoreConsent: true });
+    assert.doesNotMatch(sql, /consent_state/);
+    assert.match(sql, /c\.merchant_id = \$1/);
+  });
+
   it("never messages a customer who asked to stop", () => {
     /* The one rule with no exceptions. Whether `unknown` may be messaged is
        policy and may change; `withdrawn` may not, so this asserts the exclusion

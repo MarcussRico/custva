@@ -297,30 +297,45 @@ campaignsRouter.post("/preview-audience", async (req, res) => {
     body.manualExcludeIds
   );
 
-  /* The audience query already excludes anyone withdrawn, so the split here is
-     between recorded consent and none — the number a merchant needs before
-     deciding whether this send is one they should make. */
+  /* Why the number is smaller than expected.
+     
+     The audience query now excludes anyone without a recorded consent, so the
+     consent split of the *returned* rows is always "all granted" and says
+     nothing. What a merchant needs is the opposite: how many matched their
+     rules and were left out anyway. Without this the count just drops and
+     there is nothing on screen explaining it. */
   const bySegment: Record<string, number> = {};
   for (const person of audience) {
     const key = person.segment ?? "unclassified";
     bySegment[key] = (bySegment[key] ?? 0) + 1;
   }
 
-  const consentSplit = audience.length
-    ? await query<{ granted: string; unknown: string }>(
-        `SELECT COUNT(*) FILTER (WHERE consent_state = 'granted')::text AS granted,
-                COUNT(*) FILTER (WHERE consent_state = 'unknown')::text AS unknown
-           FROM customers WHERE merchant_id = $1 AND id = ANY($2::uuid[])`,
-        [merchantId, audience.map((a) => a.id)]
-      )
-    : null;
+  /* Same rules, consent scope removed, so the difference is exactly the people
+     the consent gate is holding back. Run as a second query rather than
+     inferred, because "matched the rules" and "matched the rules and is
+     reachable" are two different questions and guessing at the gap would
+     eventually be wrong. */
+  const unscoped = buildAudienceQuery(
+    merchantId,
+    body.audienceRules,
+    body.manualIncludeIds,
+    body.manualExcludeIds,
+    { ignoreConsent: true }
+  );
+  const excluded = await query<{ unknown: string; withdrawn: string }>(
+    `SELECT COUNT(*) FILTER (WHERE c.consent_state = 'unknown')::text AS unknown,
+            COUNT(*) FILTER (WHERE c.consent_state = 'withdrawn')::text AS withdrawn
+       FROM customers c
+      WHERE c.id IN (SELECT id FROM (${unscoped.sql}) AS matched)`,
+    unscoped.params
+  );
 
   return sendSuccess(req, res, {
     count: audience.length,
     bySegment,
-    consent: {
-      granted: Number(consentSplit?.rows[0]?.granted ?? 0),
-      unknown: Number(consentSplit?.rows[0]?.unknown ?? 0)
+    excluded: {
+      noConsentRecord: Number(excluded.rows[0]?.unknown ?? 0),
+      askedToStop: Number(excluded.rows[0]?.withdrawn ?? 0)
     },
     sample: audience.slice(0, 8)
   });

@@ -54,18 +54,23 @@ export const CONSENT = {
   /**
    * Whether a customer with no recorded consent may still be messaged.
    *
-   * True today, and this is a deliberate, temporary bridge rather than an
-   * oversight. Every customer predating the ledger is `unknown`; flipping this
-   * to false would silently mute an entire book overnight and the merchant
-   * would discover it as "Custva stopped working". Instead the count of
-   * unrecorded customers is surfaced in the product so the gap is visible and
-   * can be closed at the counter.
+   * **False.** A send to an `unknown` customer is a message to someone who
+   * never agreed: Meta's opt-in policy treats it as a violation, the DPDP Act
+   * treats it as processing without consent, and it is the merchant's own
+   * number that absorbs the complaint.
    *
-   * **This must be false before any real Meta credentials are live.** At that
-   * point a send to an `unknown` customer is a message to someone who never
-   * agreed, and Meta's opt-in policy makes it the merchant's number that pays.
+   * This was true while the ledger was new, as a bridge so that a book
+   * predating it was not silently muted overnight. That bridge is now closed —
+   * nothing has ever actually sent, so there is no live behaviour to preserve,
+   * and this is the cheapest possible moment to be strict. Turning it on later
+   * would mean deciding to stop messaging people the product had already been
+   * messaging.
+   *
+   * The consequence is intended and visible: customers with no record drop out
+   * of every audience, and the count of them is surfaced on the dashboard and
+   * filterable on the customers list so the gap can be closed at the counter.
    */
-  allowUnknown: true,
+  allowUnknown: false,
 } as const;
 
 /** May a template be sent to someone in this state, under current policy? */

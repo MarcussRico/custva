@@ -69,7 +69,7 @@ const SEGMENT_LABEL: Record<string, string> = {
 interface AudiencePreview {
   count: number;
   bySegment: Record<string, number>;
-  consent: { granted: number; unknown: number };
+  excluded: { noConsentRecord: number; askedToStop: number };
   sample: Array<{ id: string; name: string; mobile: string; segment: string | null }>;
 }
 
@@ -93,9 +93,14 @@ function AudienceSummary({
   if (!preview) return null;
 
   if (preview.count === 0) {
+    /* "No customers match" is wrong and demoralising when in fact plenty
+       matched and every one of them was held back by the consent gate. */
+    const held = preview.excluded.noConsentRecord;
     return (
       <p className="merchant-audience-summary merchant-audience-summary--empty">
-        No customers match these rules. Nothing would be sent.
+        {held > 0
+          ? `${held} customer${held === 1 ? "" : "s"} match these rules, but none of them have a consent record yet, so nothing would be sent.`
+          : "No customers match these rules. Nothing would be sent."}
       </p>
     );
   }
@@ -112,10 +117,13 @@ function AudienceSummary({
         {preview.count === 1 ? "" : "s"} match
       </strong>
       <span>{breakdown}</span>
-      {preview.consent.unknown > 0 && (
+      {/* Why the number may be smaller than the shop expects. Customers with
+          no consent record are excluded from every send, so saying nothing
+          here would leave the count looking like a bug. */}
+      {preview.excluded.noConsentRecord > 0 && (
         <small>
-          {preview.consent.unknown} of them have no recorded consent. They will still be sent to
-          for now, but that record is what Meta asks for.
+          {preview.excluded.noConsentRecord} more match these rules but have no consent record, so
+          they are left out. Tick the consent box next time they come in.
         </small>
       )}
     </div>
