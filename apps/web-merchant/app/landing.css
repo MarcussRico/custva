@@ -1063,3 +1063,69 @@
      where it already lives. */
   .nav-login { display: none; }
 }
+
+/* ════════════════════════════════════════════════════
+   SECTION SURFACES
+   Giving each section its own shape was half the answer to "it looks like a
+   blog"; the other half is that they all sat on one continuous sheet of paper
+   separated by a hairline. Scrolling felt like one long document because it
+   looked like one.
+
+   Alternating the ground is the quietest way to make them read as separate
+   places. Deliberately not a zebra: paper is the page, white is a step aside,
+   and the deep tint is used exactly once — on the segments, which is the
+   section worth remembering.
+════════════════════════════════════════════════════ */
+
+/* `.shell` is capped at 1160px, so a background on the section itself leaves
+   the gutters showing.
+
+   First attempt used two horizontally offset box-shadows, which does not work:
+   a shadow is a *copy of the box shifted*, so offsetting by 100vmax moves it
+   clean off screen and leaves the gutter exactly as it was. Spread instead of
+   offset would fill the gutters but bleeds vertically over the neighbouring
+   sections, and clipping that back needs `clip-path`, which would also cut the
+   lift shadow off the feature cards.
+
+   A pseudo-element sized to the viewport and centred on the section paints the
+   full width, exactly the section's height, behind its content — no clipping
+   and nothing to bleed. */
+.band[data-surface] {
+  --surface: var(--color-paper);
+  position: relative;
+}
+
+.band[data-surface]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  background: var(--surface);
+  z-index: -1;
+}
+
+.band[data-surface="shell"] { --surface: var(--color-shell); }
+.band[data-surface="deep"]  { --surface: var(--color-paper-deep); }
+
+/* Those shadows extend past the viewport. `clip` rather than `hidden` because
+   hidden creates a scroll container, which breaks `position: sticky` on the
+   nav and the anchor scrolling the section links depend on. */
+.landing { overflow-x: clip; }
+
+/* A surfaced section brings its own edge, so the hairline would double it. */
+.band[data-surface] + .band[data-surface] { border-top: 0; }
+
+/* The deep tint is warm enough that the paper-coloured rules inside it
+   disappear. Re-stated against the actual ground. */
+.band[data-surface="deep"] {
+  --rule: rgba(1, 18, 68, 0.14);
+  --rule-soft: rgba(1, 18, 68, 0.1);
+}
+
+/* `.band + .band { padding-top: 0 }` collapses the gap between neighbours,
+   which is right when they share a ground and wrong when they do not — a
+   surface change needs its own breathing room above the heading. */
+.band[data-surface] { padding-top: clamp(4.5rem, 9vw, 8rem) !important; }

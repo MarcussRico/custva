@@ -150,16 +150,13 @@ export default function LandingPage() {
               </a>
             ))}
           </nav>
-          {/* Log in sits top right, where a returning merchant looks for it.
-              Kept quiet next to the demo button: the page is selling to people
-              who do not have an account yet, and the two must not compete. */}
+          {/* Log in, and only log in. The demo CTA lived here too and competed
+              with the hero's, which is the one that should actually be pressed —
+              a prospect arriving at the top has not read anything yet. */}
           <div className="nav-actions">
             <Link href="/login" className="nav-login">
               Log in
             </Link>
-            <a href="#contact" className="btn btn-primary">
-              Book a demo
-            </a>
           </div>
         </header>
       </div>
@@ -225,7 +222,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── How it works ──────────────────────────────────────────── */}
-      <section className="shell band band-line pt-20" id="how-it-works">
+      <section className="shell band pt-20" data-surface="shell" id="how-it-works">
         <p className="instrument eyebrow" data-reveal>
           How it works
         </p>
@@ -286,10 +283,7 @@ export default function LandingPage() {
            product; this one is the product's actual output, drawn. It sits
            immediately after the flow because the flow ends at "we learn their
            rhythm" and this is what that produces. */}
-      <section className="shell band band-line pt-20" id="segments">
-        <p className="instrument eyebrow" data-reveal>
-          What we work out
-        </p>
+      <section className="shell band pt-20" data-surface="deep" id="segments">
         <h2 className="display-lg max-w-[24ch]" data-reveal>
           Four states, read from each customer&apos;s own rhythm
         </h2>
@@ -302,7 +296,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Features ──────────────────────────────────────────────── */}
-      <section className="shell band band-line pt-20" id="features">
+      <section className="shell band pt-20" data-surface="shell" id="features">
         <p className="instrument eyebrow" data-reveal>
           Platform features
         </p>
