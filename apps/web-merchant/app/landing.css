@@ -937,9 +937,27 @@
 }
 
 @media (max-width: 620px) {
-  /* On a phone the demo button wins the corner; log in moves into the footer,
-     where it already lives. */
-  .nav-login { display: none; }
+  /* Log in was hidden here because it competed with the demo button for the
+     corner. That button has since been removed from the nav, so hiding this
+     left the top right empty and gave a merchant on a phone no way in at all.
+
+     Shown, and given a border: alone in the corner it needs to read as a
+     control rather than as a stray word, and it needs a tappable target. */
+  .nav-login {
+    /* min-height rather than more padding: padding alone put it at 37px, and
+       44px is the floor below which a thumb starts missing. Flex centres the
+       label inside whatever height that produces. */
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding-inline: 0.85rem;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    font-size: 0.88rem;
+    color: var(--color-ink);
+  }
+  .nav-login:hover,
+  .nav-login:active { border-color: var(--color-ink); }
 }
 
 /* ════════════════════════════════════════════════════
