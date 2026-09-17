@@ -17,7 +17,6 @@ import {
   IconStore,
   IconTrend,
 } from "../components/landing/brand";
-import { Segments } from "../components/landing/Segments";
 import { useLandingMotion } from "../components/landing/motion";
 
 /* The original landing page's copy, in the current design language.
@@ -29,7 +28,6 @@ import { useLandingMotion } from "../components/landing/motion";
 const NAV = [
   { label: "Why now", href: "#why-now" },
   { label: "How it works", href: "#how-it-works" },
-  { label: "Segments", href: "#segments" },
   { label: "Features", href: "#features" },
   { label: "Contact", href: "#contact" },
 ];
@@ -278,25 +276,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Segments ───────────────────────────────────────────────
-           The signature. Every other section on this page is words about the
-           product; this one is the product's actual output, drawn. It sits
-           immediately after the flow because the flow ends at "we learn their
-           rhythm" and this is what that produces. */}
-      <section className="shell band pt-20" data-surface="deep" id="segments">
-        <h2 className="display-lg max-w-[24ch]" data-reveal>
-          Four states, read from each customer&apos;s own rhythm
-        </h2>
-        <p className="lede mt-6 max-w-[54ch]" data-reveal>
-          The gap between someone&apos;s last visit and today is the whole
-          decision. Here is what that looks like.
-        </p>
-
-        <Segments />
-      </section>
-
       {/* ── Features ──────────────────────────────────────────────── */}
-      <section className="shell band pt-20" data-surface="shell" id="features">
+      <section className="shell band pt-20" id="features">
         <p className="instrument eyebrow" data-reveal>
           Platform features
         </p>
@@ -318,7 +299,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── FAQ ───────────────────────────────────────────────────── */}
-      <section className="shell band band-line pt-20" id="faq">
+      <section className="shell band pt-20" data-surface="shell" id="faq">
         <p className="instrument eyebrow" data-reveal>
           FAQ
         </p>

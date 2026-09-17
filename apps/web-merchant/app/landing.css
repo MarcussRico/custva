@@ -846,128 +846,6 @@
   max-width: 54ch;
 }
 
-/* ── Segments: a reading off an instrument ──────────
-   The signature element. Nothing else on the page is data. */
-.seg-board { margin-top: 2.5rem; }
-
-.seg-legend {
-  display: flex;
-  gap: 1.4rem;
-  margin-bottom: 0.9rem;
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-ink-soft);
-}
-.seg-legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
-
-.seg-key-visit {
-  width: 9px; height: 9px; border-radius: 999px;
-  background: var(--color-ink);
-}
-.seg-key-now {
-  width: 2px; height: 13px;
-  background: var(--color-coral);
-}
-
-.seg-rows { list-style: none; margin: 0; padding: 0; }
-
-.seg-row {
-  display: grid;
-  gap: 0.35rem 1.5rem;
-  padding: 1.15rem 0;
-  border-top: 1px solid var(--rule-soft);
-}
-
-@media (min-width: 900px) {
-  /* Name, then the track, then what it means. The track is the widest column
-     because it is the part doing the explaining. */
-  .seg-row {
-    grid-template-columns: 11ch minmax(0, 1fr) minmax(0, 30ch);
-    align-items: center;
-  }
-}
-
-.seg-head {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  justify-content: space-between;
-}
-@media (min-width: 900px) {
-  .seg-head { display: block; }
-}
-
-.seg-name {
-  display: block;
-  font-family: var(--font-display);
-  font-size: 1.02rem;
-  font-weight: 600;
-  color: var(--color-ink);
-}
-
-.seg-reading {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 0.74rem;
-  letter-spacing: 0.03em;
-  color: var(--color-ink-soft);
-  margin-top: 0.1rem;
-}
-
-.seg-track {
-  display: block;
-  width: 100%;
-  height: 34px;
-  overflow: visible;
-}
-
-.seg-base {
-  stroke: var(--rule-soft);
-  stroke-width: 1;
-}
-
-/* The absence that defines the segment. Dashed so it reads as elapsed time
-   rather than as a drawn connection between two points. */
-.seg-gap {
-  stroke: var(--color-ink-soft);
-  stroke-width: 1.5;
-  stroke-dasharray: 2 5;
-  opacity: 0.55;
-}
-
-.seg-visit { fill: var(--color-ink); }
-
-.seg-now {
-  stroke: var(--color-coral);
-  stroke-width: 2;
-  stroke-linecap: round;
-}
-
-/* Colour carries urgency, and only on the two rows where something is wrong.
-   Colouring all four would make none of them mean anything. */
-.seg-row--at_risk .seg-gap { stroke: var(--color-yellow-deep); opacity: 0.75; }
-.seg-row--dormant .seg-gap { stroke: var(--color-coral); opacity: 0.8; }
-.seg-row--loyal .seg-visit { fill: var(--color-green); }
-.seg-row--first_time .seg-gap { opacity: 0.3; }
-
-.seg-note {
-  font-size: 0.88rem;
-  line-height: 1.6;
-  color: var(--color-ink-soft);
-}
-
-.seg-foot {
-  margin-top: 1.4rem;
-  padding-top: 1.1rem;
-  border-top: 1px solid var(--rule-soft);
-  font-size: 0.9rem;
-  line-height: 1.65;
-  color: var(--color-ink-soft);
-  max-width: 62ch;
-}
-
 /* ── FAQ: available, not imposed ────────────────────
    Closed by default. Five answers laid open read as page content; closed,
    they are there for the reader who wants them. */
@@ -1072,9 +950,10 @@
    looked like one.
 
    Alternating the ground is the quietest way to make them read as separate
-   places. Deliberately not a zebra: paper is the page, white is a step aside,
-   and the deep tint is used exactly once — on the segments, which is the
-   section worth remembering.
+   places. Paper and white, strictly alternating so no two neighbours share a
+   ground. A third, warmer tint existed while the segments section did — it
+   was there to mark the one section worth remembering, and with that section
+   gone there is nothing left for it to mean.
 ════════════════════════════════════════════════════ */
 
 /* `.shell` is capped at 1160px, so a background on the section itself leaves
@@ -1108,7 +987,6 @@
 }
 
 .band[data-surface="shell"] { --surface: var(--color-shell); }
-.band[data-surface="deep"]  { --surface: var(--color-paper-deep); }
 
 /* Those shadows extend past the viewport. `clip` rather than `hidden` because
    hidden creates a scroll container, which breaks `position: sticky` on the
@@ -1117,13 +995,6 @@
 
 /* A surfaced section brings its own edge, so the hairline would double it. */
 .band[data-surface] + .band[data-surface] { border-top: 0; }
-
-/* The deep tint is warm enough that the paper-coloured rules inside it
-   disappear. Re-stated against the actual ground. */
-.band[data-surface="deep"] {
-  --rule: rgba(1, 18, 68, 0.14);
-  --rule-soft: rgba(1, 18, 68, 0.1);
-}
 
 /* `.band + .band { padding-top: 0 }` collapses the gap between neighbours,
    which is right when they share a ground and wrong when they do not — a
