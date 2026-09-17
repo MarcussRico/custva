@@ -75,7 +75,13 @@ const FEATURES = [
   {
     Icon: IconShield,
     title: "Secure & Compliant",
-    body: "Built on Indian infrastructure. DPDP-aligned data handling with role-based access controls.",
+    /* "Built for Indian businesses", not "on Indian infrastructure" — nothing
+       is hosted anywhere yet and the privacy policy's region is still a
+       placeholder, so the original line was a jurisdiction claim the product
+       could not stand behind. The other two hold up: role-based access is
+       real (requireRole, three roles), and the consent ledger is a genuine
+       DPDP requirement that exists. */
+    body: "Built for Indian businesses. DPDP-aligned data handling with role-based access controls.",
   },
 ];
 
