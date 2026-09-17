@@ -94,7 +94,7 @@ const WHY_NOW = [
   {
     Icon: IconStore,
     title: "Offline businesses are losing to online",
-    body: "E-commerce wins on data. Now you can too — with zero tech complexity, built for the offline world.",
+    body: "E-commerce wins on data. Now you can too, with zero tech complexity, built for the offline world.",
   },
   {
     Icon: IconCoin,
@@ -109,18 +109,18 @@ const WHY_NOW = [
   {
     Icon: IconBubble,
     title: "WhatsApp is where your customers already are",
-    body: "Reach them instantly — no new app, no friction, no downloads. They opt in first.",
+    body: "Reach them instantly. No new app, no friction, no downloads. They opt in first.",
   },
 ];
 
 const FAQS = [
   {
     q: "Who is Custva built for?",
-    a: "Offline businesses — cafes, restaurants, bakeries, salons, gyms, and local retail stores that want to grow through repeat customers.",
+    a: "Offline businesses: cafes, restaurants, bakeries, salons, gyms, and local retail stores that want to grow through repeat customers.",
   },
   {
     q: "Do my customers need to download an app?",
-    a: "No. Custva works entirely via WhatsApp. Your customers receive messages on their existing number — zero friction, zero downloads. They do have to opt in first.",
+    a: "No. Custva works entirely via WhatsApp. Your customers receive messages on their existing number. Zero friction, zero downloads. They do have to opt in first.",
   },
   {
     q: "What does the messaging cost?",
@@ -128,11 +128,11 @@ const FAQS = [
   },
   {
     q: "How is customer data stored?",
-    a: "In a Postgres database belonging to the deployment, with every query scoped to your business and sessions held in httpOnly cookies. The hosting region is chosen when your instance is set up — ask us where yours would run.",
+    a: "In a Postgres database belonging to the deployment, with every query scoped to your business and sessions held in httpOnly cookies. The hosting region is chosen when your instance is set up, so ask us where yours would run.",
   },
   {
     q: "Can I use Custva for multiple outlets?",
-    a: "Not yet. One account is one business today — no branch split, no per-outlet reporting. If you run several, tell us, because it changes what we build next.",
+    a: "Not yet. One account is one business today, with no branch split and no per-outlet reporting. If you run several, tell us, because it changes what we build next.",
   },
 ];
 
@@ -191,8 +191,8 @@ export default function LandingPage() {
         </h1>
 
         <p className="lede mt-12" data-hero-sub>
-          Custva helps cafes, restaurants, bakeries, salons, and retail stores
-          increase revenue — through smarter retention.
+          Custva helps cafes, restaurants, bakeries, salons and retail stores
+          increase revenue through smarter retention.
         </p>
 
         <div className="mt-9 flex flex-wrap items-center gap-3" data-hero-cta>
@@ -210,12 +210,20 @@ export default function LandingPage() {
           </a>
         </div>
 
-        <div className="biz-tags mt-8" data-hero-cta>
-          {BUSINESSES.map((b) => (
-            <span key={b} className="biz-tag">
-              {b}
-            </span>
-          ))}
+        {/* A continuous horizontal loop. The list is rendered twice and the
+            track is translated by exactly half its width, so the seam lands
+            where the two copies meet and the motion never visibly jumps.
+            aria-hidden on the duplicate, or a screen reader reads every
+            sector twice. */}
+        <div className="biz-marquee mt-8" data-hero-cta>
+          <div className="biz-track">
+            {BUSINESSES.map((b) => (
+              <span key={b} className="biz-tag">{b}</span>
+            ))}
+            {BUSINESSES.map((b) => (
+              <span key={`dup-${b}`} className="biz-tag" aria-hidden="true">{b}</span>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -246,7 +254,7 @@ export default function LandingPage() {
         </h2>
         <p className="lede mt-6" data-reveal>
           A first-timer gets a welcome sequence. Everyone else is left alone
-          until they are actually late by their own pattern — so a weekly
+          until they are actually late by their own pattern, so a weekly
           regular who turns up on Friday hears nothing.
         </p>
 
@@ -316,7 +324,7 @@ export default function LandingPage() {
             </h2>
             <p className="lede mt-5" data-reveal>
               Have a question, or want to know if Custva is right for your
-              business? Reach out — we respond quickly.
+              business? Reach out and we respond quickly.
             </p>
           </div>
 
@@ -330,7 +338,7 @@ export default function LandingPage() {
             >
               custva.business@gmail.com
             </a>
-            <span className="instrument mt-1">Mon–Sat · 10:00–19:00 IST</span>
+            <span className="instrument mt-1">Monday to Saturday, 10 am to 7 pm IST</span>
           </div>
         </div>
       </section>

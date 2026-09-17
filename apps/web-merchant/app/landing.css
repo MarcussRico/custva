@@ -1107,51 +1107,89 @@
 .why-block[data-tone="light"] .why-block-body { color: var(--color-ink-soft); }
 
 /* ════════════════════════════════════════════════════
-   HOW IT WORKS — a flowchart
-   Four numbered rows described a process; this one is a picture of it. The
-   return path is drawn because step four is not a terminus: a customer who
-   comes back starts the loop again with one more visit of history, which is
-   why the prediction sharpens. A diagram stopping at four would be a funnel.
+   HOW IT WORKS — a route on a map
+   Four boxes joined by straight arrows is the shape every generated landing
+   page reaches for. This is a trail: one dotted path winding from the first
+   step to the last, with the steps sitting on it as waypoints. It also
+   answers the contour field in the hero, so the page carries one idea.
 ════════════════════════════════════════════════════ */
 .flow { margin-top: clamp(2.5rem, 5vw, 3.5rem); }
 
-.flow-track {
+.flow-map { position: relative; }
+
+/* ── The trail ──────────────────────────────────────── */
+/* Its own band above the cards. Running it behind them hid all but a few
+   disconnected fragments, because the cards are opaque. */
+.flow-trail {
+  display: none;              /* desktop only; the phone layout is vertical */
+  width: 100%;
+  height: 96px;
+  overflow: visible;
+}
+
+@media (min-width: 900px) {
+  .flow-trail { display: block; }
+}
+
+/* `preserveAspectRatio="none"` stretches the viewBox to the section width,
+   which would stretch the dashes with it. `non-scaling-stroke` on the path
+   keeps stroke width and dash pattern in screen units, so the dots stay
+   round and evenly spaced at every viewport. */
+.flow-trail-line {
+  fill: none;
+  stroke: var(--color-ink-soft);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 1 9;
+  opacity: 0.55;
+}
+
+.flow-trail-mark {
+  fill: var(--color-paper);
+  stroke: var(--color-ink);
+  stroke-width: 2;
+}
+
+/* The stem from the route down to its card. Lighter than the route itself so
+   the route stays the primary line. */
+.flow-trail-stem {
+  stroke: var(--color-ink-soft);
+  stroke-width: 1.5;
+  stroke-dasharray: 1 7;
+  stroke-linecap: round;
+  opacity: 0.4;
+}
+
+/* ── The waypoints ──────────────────────────────────── */
+.flow-steps {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 2.5rem 0;
-}
-
-@media (min-width: 900px) {
-  /* Four across, with the arrow living in each node's right padding so the
-     columns stay equal and nothing has to be measured. */
-  .flow-track {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0;
-  }
-}
-
-.flow-node {
-  --accent: var(--color-yellow);
+  gap: 2.25rem 0;
   position: relative;
-  padding: 1.5rem 1.4rem;
+  z-index: 1;
+}
+
+.flow-step {
+  --accent: var(--color-yellow);
   background: var(--color-paper);
   border: 1px solid var(--rule);
   border-radius: var(--r-md, 14px);
+  padding: 1.35rem 1.3rem;
 }
 
-.flow-node[data-accent="coral"] { --accent: var(--color-coral); }
-.flow-node[data-accent="green"] { --accent: var(--color-green); }
+.flow-step[data-accent="coral"] { --accent: var(--color-coral); }
+.flow-step[data-accent="green"] { --accent: var(--color-green); }
 
 @media (min-width: 900px) {
-  .flow-node { margin-right: 2.2rem; }
-  .flow-node:last-child { margin-right: 0; }
+  .flow-steps {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0 1.5rem;
+    align-items: stretch;
+  }
 }
 
-/* The number is the loudest thing in the node, in its accent. It is what
-   makes the sequence readable at a glance rather than something you work out
-   by reading four headings. */
 .flow-n {
   display: inline-block;
   font-family: var(--font-mono);
@@ -1162,12 +1200,12 @@
   background: var(--accent);
   padding: 0.15rem 0.5rem;
   border-radius: 5px;
-  margin-bottom: 0.8rem;
+  margin-bottom: 0.75rem;
 }
 
 .flow-title {
   font-family: var(--font-display);
-  font-size: 1.08rem;
+  font-size: 1.06rem;
   font-weight: 700;
   line-height: 1.2;
   letter-spacing: -0.015em;
@@ -1176,110 +1214,54 @@
 
 .flow-body {
   margin-top: 0.45rem;
-  font-size: 0.9rem;
+  font-size: 0.89rem;
   line-height: 1.6;
   color: var(--color-ink-soft);
 }
 
-/* ── The connectors ──────────────────────────────────
-   Drawn from borders rather than a glyph, so the arrowhead sits on the line
-   at any size and inherits the accent. */
-.flow-arrow {
-  position: absolute;
-  background: var(--accent);
-}
-
-@media (max-width: 899px) {
-  /* Vertical: a short stem below the node, pointing down at the next one. */
-  .flow-arrow {
-    left: 50%;
-    bottom: -2.1rem;
-    width: 2px;
-    height: 1.6rem;
-    transform: translateX(-50%);
-  }
-  .flow-arrow::after {
-    content: "";
-    position: absolute;
-    left: 50%;
-    bottom: -1px;
-    width: 8px;
-    height: 8px;
-    border-right: 2px solid var(--accent);
-    border-bottom: 2px solid var(--accent);
-    transform: translateX(-50%) rotate(45deg);
-  }
-}
-
-@media (min-width: 900px) {
-  /* Horizontal: the line crosses the gap between two nodes. */
-  .flow-arrow {
-    top: 50%;
-    right: -2.2rem;
-    width: 2.2rem;
-    height: 2px;
-    transform: translateY(-50%);
-  }
-  .flow-arrow::after {
-    content: "";
-    position: absolute;
-    right: -1px;
-    top: 50%;
-    width: 8px;
-    height: 8px;
-    border-top: 2px solid var(--accent);
-    border-right: 2px solid var(--accent);
-    transform: translateY(-50%) rotate(45deg);
-  }
-}
-
-/* ── The return path ────────────────────────────────── */
+/* ── Where the route leads ──────────────────────────── */
 .flow-return {
   display: flex;
   align-items: center;
-  gap: 0.9rem;
-  margin-top: 1.9rem;
-  padding-top: 1.3rem;
-  position: relative;
-}
-
-/* Dashed, because it is a consequence rather than a step someone performs. */
-.flow-return-line {
-  flex: 1 1 auto;
-  height: 2px;
-  background: repeating-linear-gradient(
-    to right,
-    var(--color-ink-soft) 0 6px,
-    transparent 6px 12px
-  );
-  opacity: 0.5;
-  position: relative;
-}
-.flow-return-line::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 50%;
-  width: 8px;
-  height: 8px;
-  border-left: 2px solid var(--color-ink-soft);
-  border-bottom: 2px solid var(--color-ink-soft);
-  transform: translateY(-50%) rotate(45deg);
-}
-
-.flow-return-label {
-  flex: 0 0 auto;
+  gap: 0.6rem;
+  margin: 2.4rem 0 0;
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--color-ink-soft);
 }
 
-@media (max-width: 700px) {
-  .flow-return { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
-  .flow-return-line { width: 100%; flex: 0 0 2px; }
-  .flow-return-label { text-transform: none; font-size: 0.78rem; }
+/* A back-arrow, drawn from borders so it inherits the text colour. */
+.flow-return-mark {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-left: 2px solid var(--color-ink-soft);
+  border-bottom: 2px solid var(--color-ink-soft);
+  transform: rotate(45deg);
+}
+
+@media (max-width: 899px) {
+  /* Vertical trail on a phone: a dotted rule down the left with the
+     waypoints beside it. The SVG route needs width it does not have here. */
+  .flow-steps {
+    padding-left: 1.6rem;
+    border-left: 2px dotted color-mix(in srgb, var(--color-ink-soft) 55%, transparent);
+  }
+  .flow-step { position: relative; }
+  .flow-step::before {
+    content: "";
+    position: absolute;
+    left: -2.05rem;
+    top: 1.5rem;
+    width: 11px;
+    height: 11px;
+    border-radius: 999px;
+    background: var(--color-paper);
+    border: 2px solid var(--color-ink);
+  }
+  .flow-return { text-transform: none; font-size: 0.8rem; }
 }
 
 /* ════════════════════════════════════════════════════
@@ -1381,4 +1363,98 @@
     translate: none;
     transition: none;
   }
+}
+
+/* ════════════════════════════════════════════════════
+   SECTOR MARQUEE
+   A continuous horizontal loop. The list is rendered twice and the track
+   translates by exactly -50%, so the animation ends with the second copy
+   sitting where the first began. Any other distance leaves a visible jump at
+   the loop point.
+════════════════════════════════════════════════════ */
+.biz-marquee {
+  position: relative;
+  overflow: hidden;
+  /* Faded at both ends so tags enter and leave rather than being chopped off
+     at a hard edge. */
+  mask-image: linear-gradient(
+    to right,
+    transparent, #000 5rem, #000 calc(100% - 5rem), transparent
+  );
+}
+
+.biz-track {
+  display: flex;
+  gap: 0.55rem;
+  width: max-content;
+  animation: biz-scroll 34s linear infinite;
+}
+
+/* Pausing on hover is the difference between a decoration and something a
+   reader can actually finish reading. */
+.biz-marquee:hover .biz-track,
+.biz-marquee:focus-within .biz-track { animation-play-state: paused; }
+
+@keyframes biz-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Stopped, and the mask removed so nothing is left permanently faded out
+     with no way to bring it into view. */
+  .biz-track { animation: none; }
+  .biz-marquee { mask-image: none; overflow-x: auto; }
+}
+
+/* ════════════════════════════════════════════════════
+   HEADER
+   Brand yellow, black type. The wordmark is a PNG rather than an SVG, so it
+   cannot be recoloured by `fill` — `brightness(0)` drives every channel to
+   zero while leaving the alpha intact, which turns a navy mark black without
+   needing a second asset.
+════════════════════════════════════════════════════ */
+.nav {
+  background: transparent;
+  backdrop-filter: none;
+}
+
+/* Full-bleed: `.nav` sits inside the 1160px shell, so the bar is painted by a
+   viewport-wide pseudo-element behind it rather than by a background on the
+   element itself. */
+.nav::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  background: var(--color-yellow);
+  z-index: -1;
+}
+
+.nav { position: sticky; }
+
+.nav img { filter: brightness(0); }
+
+/* Black on yellow measures about 14:1, so the links can be full black rather
+   than the softened ink used on paper. */
+.nav-link,
+.nav-login { color: #0a0a0a; }
+.nav-link:hover,
+.nav-login:hover { color: #000; }
+
+/* The underline that grows on hover was tuned for paper. */
+.nav-link::after { background: #0a0a0a; }
+
+.nav[data-stuck="true"]::before {
+  box-shadow: 0 1px 0 rgba(1, 18, 68, 0.12);
+}
+.nav[data-stuck="true"] { border-bottom-color: transparent; }
+
+@media (max-width: 620px) {
+  .nav-login { border-color: rgba(10, 10, 10, 0.3); }
+  .nav-login:hover,
+  .nav-login:active { border-color: #0a0a0a; }
 }

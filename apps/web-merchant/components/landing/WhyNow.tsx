@@ -29,7 +29,7 @@ const BLOCKS = [
     Icon: IconStore,
     accent: "yellow",
     title: "Offline businesses are losing to online",
-    body: "E-commerce wins on data. Now you can too — with zero tech complexity, built for the offline world.",
+    body: "E-commerce wins on data. Now you can too, with zero tech complexity, built for the offline world.",
   },
   {
     Icon: IconCoin,
@@ -47,7 +47,7 @@ const BLOCKS = [
     Icon: IconBubble,
     accent: "yellow",
     title: "WhatsApp is where your customers already are",
-    body: "Reach them instantly — no new app, no friction, no downloads. They opt in first.",
+    body: "Reach them instantly. No new app, no friction, no downloads. They opt in first.",
   },
 ] as const;
 
