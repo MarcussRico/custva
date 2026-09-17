@@ -950,10 +950,9 @@
    looked like one.
 
    Alternating the ground is the quietest way to make them read as separate
-   places. Paper and white, strictly alternating so no two neighbours share a
-   ground. A third, warmer tint existed while the segments section did — it
-   was there to mark the one section worth remembering, and with that section
-   gone there is nothing left for it to mean.
+   places. Paper against the warmer tint the contact panel already uses —
+   white was too close to paper to register as a change, and reusing the tint
+   that is already on the page keeps it to two surfaces rather than three.
 ════════════════════════════════════════════════════ */
 
 /* `.shell` is capped at 1160px, so a background on the section itself leaves
@@ -986,7 +985,7 @@
   z-index: -1;
 }
 
-.band[data-surface="shell"] { --surface: var(--color-shell); }
+.band[data-surface="shell"] { --surface: var(--color-paper-deep); }
 
 /* Those shadows extend past the viewport. `clip` rather than `hidden` because
    hidden creates a scroll container, which breaks `position: sticky` on the
@@ -1035,10 +1034,10 @@
   color: var(--color-paper);
 }
 
-/* White rather than paper, so the block is distinct from the page ground it
-   sits between rather than dissolving into it. */
+/* The warm tint, matching the contact panel, rather than white. White against
+   a paper ground barely registers as a change. */
 .why-block[data-tone="light"] {
-  background: var(--color-shell);
+  background: var(--color-paper-deep);
   color: var(--color-ink);
 }
 
@@ -1263,4 +1262,62 @@
   .flow-return { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
   .flow-return-line { width: 100%; flex: 0 0 2px; }
   .flow-return-label { text-transform: none; font-size: 0.78rem; }
+}
+
+/* ════════════════════════════════════════════════════
+   TOPOGRAPHY — the hero's ambient field
+   Contour lines rather than the usual gradient blob: a contour map is a
+   picture of measurement, which is what this product sells, and it stays out
+   of the way of type in a way a blob does not.
+════════════════════════════════════════════════════ */
+.hero { position: relative; }
+
+/* Behind the copy and behind nothing else. The hero's own stacking context
+   keeps it from sliding under later sections. */
+.topo {
+  position: absolute;
+  inset: -10% -20% auto -25%;
+  height: 130%;
+  z-index: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+/* The hero's text has to sit above it, and `.shell` children are not
+   positioned by default. */
+.hero > *:not(.topo) { position: relative; z-index: 1; }
+
+.topo-line {
+  fill: none;
+  stroke: var(--color-ink);
+  stroke-width: 1.15;
+  /* Outer rings fade, so the field reads as depth rather than as a flat
+     pattern laid over the page. `--i` is set per path. */
+  opacity: calc(0.16 - var(--i) * 0.012);
+  transform-origin: 340px 330px;
+  /* Each ring on its own slow cycle. Staggering by index is what makes the
+     field breathe instead of pulsing in unison — in unison it looks like a
+     sonar ping, which is a different and much cheaper effect. */
+  animation: topo-drift calc(34s + var(--i) * 4s) ease-in-out infinite alternate;
+  animation-delay: calc(var(--i) * -2.4s);
+  will-change: transform;
+}
+
+@keyframes topo-drift {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(22px, -14px) scale(1.045); }
+}
+
+/* The warm tint is a *lighter* ground than white in places, so the accents
+   needed re-measuring against it — see the why-block accent rules above. */
+
+@media (max-width: 860px) {
+  /* At phone width the contours crowd the headline. Pushed further out and
+     faded, so the texture survives without competing. */
+  .topo { inset: -6% -60% auto -60%; height: 118%; }
+  .topo-line { opacity: calc(0.11 - var(--i) * 0.009); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topo-line { animation: none; }
 }

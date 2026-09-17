@@ -20,6 +20,7 @@ import {
 import { useLandingMotion } from "../components/landing/motion";
 import { WhyNow } from "../components/landing/WhyNow";
 import { Flow } from "../components/landing/Flow";
+import { Topography } from "../components/landing/Topography";
 
 /* The original landing page's copy, in the current design language.
    Changes asked for: the positioning line, no stats strip, Why Now with
@@ -162,7 +163,8 @@ export default function LandingPage() {
       </div>
 
       {/* ── Hero ──────────────────────────────────────────────────── */}
-      <section className="shell band">
+      <section className="shell band hero">
+        <Topography />
         <p className="instrument" data-hero-line>
           Customer intelligence for business
         </p>
@@ -184,9 +186,6 @@ export default function LandingPage() {
         <div className="mt-9 flex flex-wrap items-center gap-3" data-hero-cta>
           <a href="#contact" className="btn btn-primary">
             Book a demo <IconArrowRight className="w-[18px] h-[18px]" />
-          </a>
-          <a href="#how-it-works" className="btn btn-ghost">
-            How it works
           </a>
         </div>
 
