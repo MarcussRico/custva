@@ -16,98 +16,105 @@
  * of different lengths at every viewport.
  */
 
+/* The shapes are the conventional flowchart ones, and they are picked to say
+   what each step actually is rather than for variety:
+   
+   parallelogram — input/output. Data entering the system.
+   rectangle     — a process. Something is computed.
+   hexagon       — a condition. This step really is a decision: is this person
+                   late by their own gap? That question is the product.
+   stadium       — a terminator. Where the flow comes to rest.
+   
+   Using them any other way round would be decoration. */
 const STEPS = [
   {
     n: "01",
+    shape: "input",
     title: "Capture the visit",
     body: "Name, phone and spend, logged at the counter in seconds.",
     accent: "yellow",
   },
   {
     n: "02",
+    shape: "process",
     title: "We learn their rhythm",
     body: "How often that person normally comes back, from their own history.",
     accent: "green",
   },
   {
     n: "03",
-    title: "They go quiet, we message",
-    body: "A WhatsApp message in your words, when they have missed their normal visit.",
+    shape: "decision",
+    title: "Are they late?",
+    body: "Past their own usual gap, we send a WhatsApp message in your words. On time, we say nothing.",
     accent: "coral",
   },
   {
     n: "04",
+    shape: "end",
     title: "Measure what came back",
     body: "Which returns followed a message, and which were coming anyway.",
     accent: "yellow",
   },
 ] as const;
 
-/* The route runs in its own band above the cards, undulating gently, with a
-   station on it per step and a short stem dropping to each card.
+/* Each step sits a fixed distance lower than the one before, so the four
+   together form a parallelogram, and a curved dotted link runs from the right
+   edge of each box to the left edge of the next.
    
-   The first attempt ran the trail *through* the cards at two heights. The
-   cards are opaque, so all that survived was a few disconnected wisps in the
-   gutters — the route was there and invisible. Giving it clear air and hanging
-   the steps off it means the whole path reads at once, which is the only
-   reason to draw a route rather than arrows. */
-const TRAIL =
-  "M 6 62 C 90 62, 110 26, 190 26 S 330 26, 375 58 S 470 96, 560 74 " +
-  "S 690 26, 770 34 S 920 58, 994 44";
-
-/* x positions of the four stations, matched to the card column centres. */
-const STATIONS: Array<[number, number]> = [
-  [125, 38],
-  [375, 58],
-  [625, 56],
-  [875, 44],
-];
+   The link lives inside its own step and is positioned into the gutter beside
+   it. That is the whole trick: an earlier version drew one long path across
+   the section, and because the boxes are opaque all that survived was a few
+   disconnected wisps between them. A connector that only ever occupies empty
+   space cannot be occluded by anything. */
+function Link() {
+  return (
+    <svg
+      className="flow-link"
+      viewBox="0 0 60 64"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {/* Left edge to right edge, dropping by exactly the stagger. The
+          control points sit on the horizontal at each end, so the curve
+          leaves and arrives flat and reads as one continuous line through
+          the box it joins. */}
+      <path
+        d="M0 0 C 26 0, 34 64, 60 64"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+}
 
 export function Flow() {
   return (
     <div className="flow">
-      <div className="flow-map">
-        <svg
-          className="flow-trail"
-          viewBox="0 0 1000 100"
-          preserveAspectRatio="none"
-          aria-hidden="true"
-          focusable="false"
-        >
-          <path className="flow-trail-line" d={TRAIL} vectorEffect="non-scaling-stroke" />
-          {STATIONS.map(([x, y], i) => (
-            <g key={i}>
-              {/* The stem down to the card. Drawn here rather than in CSS so
-                  it starts exactly on the curve. */}
-              <line
-                className="flow-trail-stem"
-                x1={x} y1={y} x2={x} y2={100}
-                vectorEffect="non-scaling-stroke"
-              />
-              <circle
-                className="flow-trail-mark"
-                cx={x} cy={y} r={6}
-                vectorEffect="non-scaling-stroke"
-              />
-            </g>
-          ))}
-        </svg>
-
-        <ol className="flow-steps">
-          {STEPS.map((s) => (
-            <li
-              key={s.n}
-              className="flow-step"
-              data-accent={s.accent}
-              data-reveal
-            >
+      <ol className="flow-steps">
+        {STEPS.map((s, i) => (
+          <li
+            key={s.n}
+            className="flow-step"
+            data-accent={s.accent}
+            data-shape={s.shape}
+            /* Drives the stagger, so the offset is one value in CSS rather
+               than four hand-written margins. */
+            style={{ "--step": i } as React.CSSProperties}
+            data-reveal
+          >
+            {/* The clip lives on this wrapper, not on the <li>. clip-path
+                clips descendants too, so with it on the <li> the connector
+                inside was clipped away — only the one unclipped shape showed
+                its link, which looked like three missing lines. */}
+            <div className="flow-shape">
               <span className="flow-n">{s.n}</span>
               <h3 className="flow-title">{s.title}</h3>
               <p className="flow-body">{s.body}</p>
-            </li>
-          ))}
-        </ol>
-      </div>
+            </div>
+            {i < STEPS.length - 1 && <Link />}
+          </li>
+        ))}
+      </ol>
 
       <p className="flow-return">
         <span className="flow-return-mark" aria-hidden="true" />
