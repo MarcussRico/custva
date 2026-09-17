@@ -1000,3 +1000,267 @@
    which is right when they share a ground and wrong when they do not — a
    surface change needs its own breathing room above the heading. */
 .band[data-surface] { padding-top: clamp(4.5rem, 9vw, 8rem) !important; }
+
+/* ════════════════════════════════════════════════════
+   WHY NOW — full-bleed alternating blocks
+   Dark panels against light ones, big bold headings, one vibrant accent per
+   block. The dark is the brand navy rather than black: pure black beside a
+   warm paper ground reads as a component pasted in from another site.
+════════════════════════════════════════════════════ */
+.why-blocks { margin-top: clamp(2.5rem, 5vw, 4rem); }
+
+.why-block {
+  --accent: var(--color-yellow);
+  padding-block: clamp(3rem, 6vw, 5rem);
+}
+
+/* The accent has to answer to the ground it sits on, not just to the block's
+   identity. Measured: bright yellow on white is 1.45:1 and the icon and rule
+   simply vanish; coral is 3.07:1, which is the floor rather than comfortable.
+   Against navy the same brights are 12.4:1 and 8.9:1 and look exactly right.
+   
+   So each accent has two values — the vibrant one for dark blocks, the deep
+   one for light. Same colour identity, legible on both. */
+.why-block[data-tone="dark"][data-accent="yellow"] { --accent: var(--color-yellow); }
+.why-block[data-tone="dark"][data-accent="coral"]  { --accent: var(--color-coral); }
+.why-block[data-tone="dark"][data-accent="green"]  { --accent: #2ecf8f; }
+
+.why-block[data-tone="light"][data-accent="yellow"] { --accent: var(--color-yellow-deep); }
+.why-block[data-tone="light"][data-accent="coral"]  { --accent: var(--color-coral-deep); }
+.why-block[data-tone="light"][data-accent="green"]  { --accent: var(--color-green); }
+
+/* Navy, and the accent stays saturated against it. */
+.why-block[data-tone="dark"] {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+
+/* White rather than paper, so the block is distinct from the page ground it
+   sits between rather than dissolving into it. */
+.why-block[data-tone="light"] {
+  background: var(--color-shell);
+  color: var(--color-ink);
+}
+
+.why-block-inner { max-width: 1160px; }
+
+.why-block-icon {
+  width: 34px;
+  height: 34px;
+  color: var(--accent);
+  margin-bottom: 1.4rem;
+}
+
+/* A short accent rule instead of the reference's emoji — it marks the block
+   in its colour without importing a picture that renders differently on every
+   platform. */
+.why-block-rule {
+  display: block;
+  width: 46px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  margin-bottom: 1rem;
+}
+
+/* `.landing h3` hardcodes `color: var(--color-ink)`, so setting a colour on
+   the block and letting the heading inherit does nothing — every heading on a
+   navy block rendered navy-on-navy and simply was not there. The icon, rule
+   and body were visible, which made it look like a missing-content bug rather
+   than a colour one. Stated per tone instead of inherited. */
+.why-block[data-tone="dark"] .why-block-title { color: var(--color-paper); }
+.why-block[data-tone="light"] .why-block-title { color: var(--color-ink); }
+
+.why-block-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 3.4vw, 2.5rem);
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.028em;
+  max-width: 24ch;
+}
+
+.why-block-body {
+  margin-top: 1rem;
+  font-size: clamp(1rem, 1.5vw, 1.1rem);
+  line-height: 1.65;
+  max-width: 46ch;
+}
+.why-block[data-tone="dark"] .why-block-body { color: rgba(255, 252, 242, 0.72); }
+.why-block[data-tone="light"] .why-block-body { color: var(--color-ink-soft); }
+
+/* ════════════════════════════════════════════════════
+   HOW IT WORKS — a flowchart
+   Four numbered rows described a process; this one is a picture of it. The
+   return path is drawn because step four is not a terminus: a customer who
+   comes back starts the loop again with one more visit of history, which is
+   why the prediction sharpens. A diagram stopping at four would be a funnel.
+════════════════════════════════════════════════════ */
+.flow { margin-top: clamp(2.5rem, 5vw, 3.5rem); }
+
+.flow-track {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2.5rem 0;
+}
+
+@media (min-width: 900px) {
+  /* Four across, with the arrow living in each node's right padding so the
+     columns stay equal and nothing has to be measured. */
+  .flow-track {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0;
+  }
+}
+
+.flow-node {
+  --accent: var(--color-yellow);
+  position: relative;
+  padding: 1.5rem 1.4rem;
+  background: var(--color-paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-md, 14px);
+}
+
+.flow-node[data-accent="coral"] { --accent: var(--color-coral); }
+.flow-node[data-accent="green"] { --accent: var(--color-green); }
+
+@media (min-width: 900px) {
+  .flow-node { margin-right: 2.2rem; }
+  .flow-node:last-child { margin-right: 0; }
+}
+
+/* The number is the loudest thing in the node, in its accent. It is what
+   makes the sequence readable at a glance rather than something you work out
+   by reading four headings. */
+.flow-n {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--color-ink);
+  background: var(--accent);
+  padding: 0.15rem 0.5rem;
+  border-radius: 5px;
+  margin-bottom: 0.8rem;
+}
+
+.flow-title {
+  font-family: var(--font-display);
+  font-size: 1.08rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  color: var(--color-ink);
+}
+
+.flow-body {
+  margin-top: 0.45rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--color-ink-soft);
+}
+
+/* ── The connectors ──────────────────────────────────
+   Drawn from borders rather than a glyph, so the arrowhead sits on the line
+   at any size and inherits the accent. */
+.flow-arrow {
+  position: absolute;
+  background: var(--accent);
+}
+
+@media (max-width: 899px) {
+  /* Vertical: a short stem below the node, pointing down at the next one. */
+  .flow-arrow {
+    left: 50%;
+    bottom: -2.1rem;
+    width: 2px;
+    height: 1.6rem;
+    transform: translateX(-50%);
+  }
+  .flow-arrow::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: -1px;
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid var(--accent);
+    border-bottom: 2px solid var(--accent);
+    transform: translateX(-50%) rotate(45deg);
+  }
+}
+
+@media (min-width: 900px) {
+  /* Horizontal: the line crosses the gap between two nodes. */
+  .flow-arrow {
+    top: 50%;
+    right: -2.2rem;
+    width: 2.2rem;
+    height: 2px;
+    transform: translateY(-50%);
+  }
+  .flow-arrow::after {
+    content: "";
+    position: absolute;
+    right: -1px;
+    top: 50%;
+    width: 8px;
+    height: 8px;
+    border-top: 2px solid var(--accent);
+    border-right: 2px solid var(--accent);
+    transform: translateY(-50%) rotate(45deg);
+  }
+}
+
+/* ── The return path ────────────────────────────────── */
+.flow-return {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-top: 1.9rem;
+  padding-top: 1.3rem;
+  position: relative;
+}
+
+/* Dashed, because it is a consequence rather than a step someone performs. */
+.flow-return-line {
+  flex: 1 1 auto;
+  height: 2px;
+  background: repeating-linear-gradient(
+    to right,
+    var(--color-ink-soft) 0 6px,
+    transparent 6px 12px
+  );
+  opacity: 0.5;
+  position: relative;
+}
+.flow-return-line::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-left: 2px solid var(--color-ink-soft);
+  border-bottom: 2px solid var(--color-ink-soft);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.flow-return-label {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-ink-soft);
+}
+
+@media (max-width: 700px) {
+  .flow-return { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+  .flow-return-line { width: 100%; flex: 0 0 2px; }
+  .flow-return-label { text-transform: none; font-size: 0.78rem; }
+}

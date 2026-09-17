@@ -18,6 +18,8 @@ import {
   IconTrend,
 } from "../components/landing/brand";
 import { useLandingMotion } from "../components/landing/motion";
+import { WhyNow } from "../components/landing/WhyNow";
+import { Flow } from "../components/landing/Flow";
 
 /* The original landing page's copy, in the current design language.
    Changes asked for: the positioning line, no stats strip, Why Now with
@@ -198,29 +200,24 @@ export default function LandingPage() {
       </section>
 
       {/* ── Why now ────────────────────────────────────────────────
-           An argument, so it is set as one: four claims, each on its own
-           rule, no icons. The icon grid belongs to Features and appearing in
-           both is what made the two sections indistinguishable. */}
-      <section className="shell band band-line pt-20" id="why-now">
-        <p className="instrument eyebrow" data-reveal>
-          Why now
-        </p>
-        <h2 className="display-lg max-w-[22ch]" data-reveal>
-          The perfect time to systemise retention
-        </h2>
-
-        <div className="claims mt-12">
-          {WHY_NOW.map((w) => (
-            <div key={w.title} className="claim" data-reveal>
-              <h3 className="claim-title">{w.title}</h3>
-              <p className="claim-body">{w.body}</p>
-            </div>
-          ))}
+           Full-bleed alternating blocks. The heading stays in the shell; the
+           blocks break out of it, which is what makes the alternation read as
+           bands of the page rather than as cards sitting on it. */}
+      <section className="band band-line pt-20" id="why-now">
+        <div className="shell">
+          <p className="instrument eyebrow" data-reveal>
+            Why now
+          </p>
+          <h2 className="display-lg max-w-[22ch]" data-reveal>
+            The perfect time to systemise retention
+          </h2>
         </div>
+
+        <WhyNow />
       </section>
 
       {/* ── How it works ──────────────────────────────────────────── */}
-      <section className="shell band pt-20" data-surface="shell" id="how-it-works">
+      <section className="shell band pt-20" id="how-it-works">
         <p className="instrument eyebrow" data-reveal>
           How it works
         </p>
@@ -233,51 +230,11 @@ export default function LandingPage() {
           regular who turns up on Friday hears nothing.
         </p>
 
-        <div className="step-list mt-12">
-          <div className="step-item hoverable" data-reveal>
-            <span className="step-n">01</span>
-            <div>
-              <h3 className="why-title">Capture walk-in data</h3>
-              <p className="why-desc">
-                Log customer name, phone, and spend at checkout.
-              </p>
-            </div>
-          </div>
-          <div className="step-item hoverable" data-reveal>
-            <span className="step-n">02</span>
-            <div>
-              <h3 className="why-title">We learn their rhythm</h3>
-              <p className="why-desc">
-                How often that person normally comes back, from their own visit
-                history.
-              </p>
-            </div>
-          </div>
-          <div className="step-item hoverable" data-reveal>
-            <span className="step-n">03</span>
-            <div>
-              <h3 className="why-title">They go quiet, we message</h3>
-              <p className="why-desc">
-                A WhatsApp message with a picture, in your words, when they have
-                missed their normal visit.
-              </p>
-            </div>
-          </div>
-          <div className="step-item hoverable" data-reveal>
-            <span className="step-n">04</span>
-            <div>
-              <h3 className="why-title">Measure and optimise</h3>
-              <p className="why-desc">
-                Track repeat visits and which returns followed a message, from
-                one dashboard.
-              </p>
-            </div>
-          </div>
-        </div>
+        <Flow />
       </section>
 
       {/* ── Features ──────────────────────────────────────────────── */}
-      <section className="shell band pt-20" id="features">
+      <section className="shell band pt-20" data-surface="shell" id="features">
         <p className="instrument eyebrow" data-reveal>
           Platform features
         </p>
@@ -299,7 +256,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── FAQ ───────────────────────────────────────────────────── */}
-      <section className="shell band pt-20" data-surface="shell" id="faq">
+      <section className="shell band band-line pt-20" id="faq">
         <p className="instrument eyebrow" data-reveal>
           FAQ
         </p>
