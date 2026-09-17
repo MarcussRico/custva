@@ -28,6 +28,10 @@ import { Topography } from "../components/landing/Topography";
    How It Works, a nav that reaches every section, and the new number. */
 
 /* Order mirrors the page, so the nav is a map rather than a menu. */
+/* The demo request form. A constant rather than inline, so if a second place
+   ever needs to point at it there is one value to change. */
+const DEMO_FORM = "https://forms.gle/73BkHWJYMwr2hZaRA";
+
 const NAV = [
   { label: "Why now", href: "#why-now" },
   { label: "How it works", href: "#how-it-works" },
@@ -192,7 +196,16 @@ export default function LandingPage() {
         </p>
 
         <div className="mt-9 flex flex-wrap items-center gap-3" data-hero-cta>
-          <a href="#contact" className="btn btn-primary">
+          {/* Straight to the form rather than scrolling to the contact
+              section. New tab, because sending someone off the page mid-read
+              loses them; `noopener` so the form's tab cannot reach back into
+              this one through window.opener. */}
+          <a
+            href={DEMO_FORM}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-primary"
+          >
             Book a demo <IconArrowRight className="w-[18px] h-[18px]" />
           </a>
         </div>
