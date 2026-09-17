@@ -7,15 +7,14 @@ import {
   createScope,
   stagger,
   utils,
-  svg,
 } from "animejs";
 
 const REDUCED = "(prefers-reduced-motion: reduce)";
 
 /* Orchestrates the whole page.
    One deliberate opening sequence in the hero, then restrained scroll reveals
-   everywhere else — the loop is the thing worth animating, so the rest stays
-   quiet rather than competing with it. */
+   everywhere else. Deliberately restrained: the page's job is to be read, and
+   motion that competes with the copy is motion that works against it. */
 export function useLandingMotion(root: RefObject<HTMLElement | null>) {
   useEffect(() => {
     const el = root.current;
@@ -30,9 +29,6 @@ export function useLandingMotion(root: RefObject<HTMLElement | null>) {
         opacity: 1,
         translateY: 0,
         scale: 1,
-      });
-      utils.set(el.querySelectorAll("[data-node], [data-return], .loop-origin"), {
-        opacity: 1,
       });
       return;
     }
@@ -61,45 +57,10 @@ export function useLandingMotion(root: RefObject<HTMLElement | null>) {
           "-=420",
         );
 
-      /* The loop draws itself, the day markers land as the line reaches them,
-         then the return leg is named. */
-      const track = svg.createDrawable(".loop-track");
-      if (track.length) {
-        hero.add(
-          track,
-          { draw: ["0 0", "0 1"], duration: 2100, ease: "inOutQuad" },
-          "-=300",
-        );
-      }
-
-      hero
-        .add(
-          ".loop-origin",
-          { opacity: [0, 1], scale: [0.7, 1], duration: 520, ease: "outBack" },
-          "-=1980",
-        )
-        .add(
-          "[data-node]",
-          {
-            opacity: [0, 1],
-            translateY: [8, 0],
-            duration: 480,
-            delay: stagger(230),
-            ease: "outBack",
-          },
-          "-=1620",
-        )
-        .add("[data-return]", { opacity: [0, 1], duration: 700 }, "-=280");
-
-      /* A slow pulse on the origin — the loop is ongoing, not a one-off. */
-      animate(".loop-origin-ring", {
-        scale: [1, 1.9],
-        opacity: [0.5, 0],
-        duration: 2600,
-        loop: true,
-        ease: "outSine",
-        delay: 2600,
-      });
+      /* The hero's return-loop diagram (the day 0/3/7/14 cadence) was
+         removed, and its animation with it. `svg.createDrawable(".loop-track")`
+         on a selector that no longer matches is the kind of leftover that
+         either throws or silently stalls the hero timeline behind it. */
 
       /* ── Below the fold: reveal on position, not on crossings ─────
          anime.js's onScroll observer watches for the moment an element

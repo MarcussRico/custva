@@ -17,7 +17,6 @@ import {
   IconStore,
   IconTrend,
 } from "../components/landing/brand";
-import { ReturnLoop } from "../components/landing/ReturnLoop";
 import { Segments } from "../components/landing/Segments";
 import { useLandingMotion } from "../components/landing/motion";
 
@@ -201,8 +200,6 @@ export default function LandingPage() {
             </span>
           ))}
         </div>
-
-        <ReturnLoop />
       </section>
 
       {/* ── Why now ────────────────────────────────────────────────
