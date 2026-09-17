@@ -1288,24 +1288,35 @@
    picture of measurement, which is what this product sells, and it stays out
    of the way of type in a way a blob does not.
 ════════════════════════════════════════════════════ */
-.hero {
-  position: relative;
-  /* The field is inset negatively and 130% tall, so without this it ran on
-     past the hero and the outer contours sat behind the Why now heading.
-     `clip` rather than `hidden` — hidden would make the hero a scroll
-     container, which breaks the sticky nav above it. */
-  overflow: clip;
-}
+.hero { position: relative; }
 
 /* Behind the copy and behind nothing else. The hero's own stacking context
    keeps it from sliding under later sections. */
+/* Sized to the viewport, bounded to the hero.
+   
+   Two things were wrong before. The bleed was `-25%`, a percentage of the
+   1160px shell rather than of the screen, so it fell further short the wider
+   the display got — 380px of bare gutter each side at 1920px. And the fix for
+   the vertical overlap was `overflow: clip` on the hero, which clips *both*
+   axes, so it cropped the field to the shell's width as well.
+   
+   `width: 100vw` centred on the element covers any viewport, and `top`/`bottom`
+   at 0 bound it to exactly the hero's height — so it cannot reach the Why now
+   heading and there is nothing to clip. The SVG's own `slice` crop keeps the
+   drifting paths inside it. */
 .topo {
   position: absolute;
-  inset: -10% -20% auto -25%;
-  height: 130%;
+  top: 0;
+  left: 50%;
+  width: 100vw;
+  /* `top: 0; bottom: 0` did not bind: an <svg> with a viewBox is a replaced
+     element with an intrinsic aspect ratio, and that wins over the offsets —
+     the box resolved 440px taller than the hero and ran under Why now again.
+     An explicit height against the positioned hero is unambiguous. */
+  height: 100%;
+  transform: translateX(-50%);
   z-index: 0;
   pointer-events: none;
-  overflow: visible;
 }
 
 /* The hero's text has to sit above it, and `.shell` children are not
@@ -1357,7 +1368,7 @@
 @media (max-width: 860px) {
   /* At phone width the contours crowd the headline. Zoomed in and faded, so
      the texture survives without competing with the type over it. */
-  .topo { inset: -4% -45% auto -45%; height: 112%; }
+  .topo { width: 118vw; }
   .topo-line { opacity: calc(0.05 + var(--l) * 0.005); }
 }
 
