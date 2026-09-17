@@ -1315,43 +1315,50 @@
 .topo-line {
   fill: none;
   stroke: var(--color-ink);
-  stroke-width: 1.15;
-  /* Pointer parallax, written by the handler in motion.ts as a fraction of
-     the hero. `translate` is a separate property from `transform`, so this
-     composes with the drift animation below instead of fighting it — one
-     drives translate, the other transform, and neither overwrites the other.
-     
-     Multiplied by the ring index, so outer rings travel further and the field
-     has depth rather than sliding as one sheet. */
+  /* Every fifth level is an index contour, drawn heavier — that is the
+     convention on a real map and it is what gives the field structure
+     instead of uniform hatching. */
+  stroke-width: 0.9;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  /* Higher ground reads darker, so the peaks come forward. Kept low overall:
+     this sits under a headline and has to lose that fight. */
+  opacity: calc(0.07 + var(--l) * 0.008);
+
+  /* Pointer parallax, written by the handler in motion.ts. `translate` is a
+     separate property from `transform`, so it composes with the drift below
+     rather than replacing it. Higher contours travel further, which is what
+     turns a flat picture into depth. */
   translate:
-    calc(var(--mx, 0) * 1px * (var(--i) + 2) * 2.6)
-    calc(var(--my, 0) * 1px * (var(--i) + 2) * 1.9);
-  transition: translate 420ms cubic-bezier(0.22, 0.61, 0.36, 1);
-  /* Outer rings fade, so the field reads as depth rather than as a flat
-     pattern laid over the page. `--i` is set per path. */
-  opacity: calc(0.16 - var(--i) * 0.012);
-  transform-origin: 340px 330px;
-  /* Each ring on its own slow cycle. Staggering by index is what makes the
-     field breathe instead of pulsing in unison — in unison it looks like a
-     sonar ping, which is a different and much cheaper effect. */
-  animation: topo-drift calc(19s + var(--i) * 2.6s) ease-in-out infinite alternate;
-  animation-delay: calc(var(--i) * -1.7s);
+    calc(var(--mx, 0) * 1px * (var(--l) + 3) * 1.5)
+    calc(var(--my, 0) * 1px * (var(--l) + 3) * 1.1);
+  transition: translate 500ms cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  animation: topo-drift calc(21s + var(--l) * 0.9s) ease-in-out infinite alternate;
+  animation-delay: calc(var(--l) * -0.8s);
   will-change: transform, translate;
 }
 
-@keyframes topo-drift {
-  from { transform: translate(-14px, 9px) scale(0.985); }
-  to   { transform: translate(26px, -17px) scale(1.055); }
+/* The index contours. `:nth-child` cannot see the level, so this keys off the
+   custom property through a set of explicit selectors — there are only four
+   of them at 19 levels. */
+.topo-line[style*="--l: 5"],
+.topo-line[style*="--l: 10"],
+.topo-line[style*="--l: 15"] {
+  stroke-width: 1.6;
+  opacity: calc(0.13 + var(--l) * 0.008);
 }
 
-/* The warm tint is a *lighter* ground than white in places, so the accents
-   needed re-measuring against it — see the why-block accent rules above. */
+@keyframes topo-drift {
+  from { transform: translate(-10px, 6px) scale(0.99); }
+  to   { transform: translate(18px, -11px) scale(1.035); }
+}
 
 @media (max-width: 860px) {
-  /* At phone width the contours crowd the headline. Pushed further out and
-     faded, so the texture survives without competing. */
-  .topo { inset: -6% -60% auto -60%; height: 118%; }
-  .topo-line { opacity: calc(0.11 - var(--i) * 0.009); }
+  /* At phone width the contours crowd the headline. Zoomed in and faded, so
+     the texture survives without competing with the type over it. */
+  .topo { inset: -4% -45% auto -45%; height: 112%; }
+  .topo-line { opacity: calc(0.05 + var(--l) * 0.005); }
 }
 
 @media (prefers-reduced-motion: reduce) {
