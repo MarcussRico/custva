@@ -434,51 +434,13 @@
 .state-next { color: var(--color-yellow-deep); }
 
 /* ── FAQ ─────────────────────────────────────────────────────────── */
-.faq-item { border-bottom: 1px solid var(--rule-soft); }
-.faq-q {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1.5rem;
-  text-align: left;
-  background: none;
-  border: 0;
-  padding: 1.25rem 0;
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-  font-weight: 500;
-  color: var(--color-ink);
-  cursor: pointer;
-}
-.faq-mark {
-  flex-shrink: 0;
-  width: 22px; height: 22px;
-  position: relative;
-}
-.faq-mark::before,
-.faq-mark::after {
-  content: "";
-  position: absolute;
-  background: var(--color-ink-soft);
-  transition: transform 0.25s ease, opacity 0.25s ease;
-}
-.faq-mark::before { top: 10px; left: 3px; width: 16px; height: 1.5px; }
-.faq-mark::after  { left: 10px; top: 3px; height: 16px; width: 1.5px; }
-.faq-q[aria-expanded="true"] .faq-mark::after { transform: rotate(90deg); opacity: 0; }
+/* The FAQ was a JS accordion — `.faq-mark`, `aria-expanded`, and a
+   `.faq-a { max-height: 0 }` that opened via `[data-open="true"]`. It was
+   replaced by native <details>, and this block sat here dead with the same
+   class names. `max-height: 0` then silently collapsed every answer in the
+   new markup to a single clipped line, which looked like a layout bug rather
+   than an old rule still firing. Deleted rather than renamed around. */
 
-.faq-a {
-  overflow: hidden;
-  max-height: 0;
-  transition: max-height 0.32s ease;
-}
-.faq-a[data-open="true"] { max-height: 340px; }
-.faq-a p {
-  padding-bottom: 1.3rem;
-  color: var(--color-ink-soft);
-  max-width: 64ch;
-  font-size: 0.96rem;
-}
 
 /* ── Footer ──────────────────────────────────────────────────────── */
 .footer {
@@ -833,4 +795,271 @@
 .biz-tag:hover {
   color: var(--color-ink);
   background: var(--color-yellow);
+}
+
+/* ════════════════════════════════════════════════════
+   SECTION SHAPES
+   The page read "like a blog" because Features, Why Now and FAQ were the
+   same object three times: eyebrow, big heading, list of icon-title-body.
+   The fix is not decoration — it is giving each section the shape of what it
+   actually is. An argument, a sequence, a reading, a set of capabilities.
+   Icons now appear in exactly one of them.
+════════════════════════════════════════════════════ */
+
+/* ── Why now: an argument ───────────────────────────
+   Claims separated by rules, set large, no icons. Reads as a position being
+   argued rather than a list of things you get. */
+.claims {
+  border-top: 1px solid var(--rule-soft);
+}
+
+.claim {
+  padding: 1.6rem 0;
+  border-bottom: 1px solid var(--rule-soft);
+  display: grid;
+  gap: 0.5rem 3rem;
+}
+
+@media (min-width: 860px) {
+  /* The claim carries the weight; the explanation sits beside it rather than
+     under it, so the four claims can be read as a single argument down the
+     left. */
+  .claim {
+    grid-template-columns: minmax(0, 20ch) minmax(0, 1fr);
+    align-items: baseline;
+  }
+}
+
+.claim-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.15rem, 1.9vw, 1.45rem);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: var(--color-ink);
+}
+
+.claim-body {
+  font-size: 0.97rem;
+  line-height: 1.7;
+  color: var(--color-ink-soft);
+  max-width: 54ch;
+}
+
+/* ── Segments: a reading off an instrument ──────────
+   The signature element. Nothing else on the page is data. */
+.seg-board { margin-top: 2.5rem; }
+
+.seg-legend {
+  display: flex;
+  gap: 1.4rem;
+  margin-bottom: 0.9rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-soft);
+}
+.seg-legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+
+.seg-key-visit {
+  width: 9px; height: 9px; border-radius: 999px;
+  background: var(--color-ink);
+}
+.seg-key-now {
+  width: 2px; height: 13px;
+  background: var(--color-coral);
+}
+
+.seg-rows { list-style: none; margin: 0; padding: 0; }
+
+.seg-row {
+  display: grid;
+  gap: 0.35rem 1.5rem;
+  padding: 1.15rem 0;
+  border-top: 1px solid var(--rule-soft);
+}
+
+@media (min-width: 900px) {
+  /* Name, then the track, then what it means. The track is the widest column
+     because it is the part doing the explaining. */
+  .seg-row {
+    grid-template-columns: 11ch minmax(0, 1fr) minmax(0, 30ch);
+    align-items: center;
+  }
+}
+
+.seg-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+@media (min-width: 900px) {
+  .seg-head { display: block; }
+}
+
+.seg-name {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.02rem;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.seg-reading {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.03em;
+  color: var(--color-ink-soft);
+  margin-top: 0.1rem;
+}
+
+.seg-track {
+  display: block;
+  width: 100%;
+  height: 34px;
+  overflow: visible;
+}
+
+.seg-base {
+  stroke: var(--rule-soft);
+  stroke-width: 1;
+}
+
+/* The absence that defines the segment. Dashed so it reads as elapsed time
+   rather than as a drawn connection between two points. */
+.seg-gap {
+  stroke: var(--color-ink-soft);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 5;
+  opacity: 0.55;
+}
+
+.seg-visit { fill: var(--color-ink); }
+
+.seg-now {
+  stroke: var(--color-coral);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+/* Colour carries urgency, and only on the two rows where something is wrong.
+   Colouring all four would make none of them mean anything. */
+.seg-row--at_risk .seg-gap { stroke: var(--color-yellow-deep); opacity: 0.75; }
+.seg-row--dormant .seg-gap { stroke: var(--color-coral); opacity: 0.8; }
+.seg-row--loyal .seg-visit { fill: var(--color-green); }
+.seg-row--first_time .seg-gap { opacity: 0.3; }
+
+.seg-note {
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--color-ink-soft);
+}
+
+.seg-foot {
+  margin-top: 1.4rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--rule-soft);
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: var(--color-ink-soft);
+  max-width: 62ch;
+}
+
+/* ── FAQ: available, not imposed ────────────────────
+   Closed by default. Five answers laid open read as page content; closed,
+   they are there for the reader who wants them. */
+.faq { border-top: 1px solid var(--rule-soft); }
+
+.faq-item { border-bottom: 1px solid var(--rule-soft); }
+
+.faq-q {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1.15rem 0;
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 1.02rem;
+  font-weight: 600;
+  color: var(--color-ink);
+  list-style: none;
+}
+.faq-q::-webkit-details-marker { display: none; }
+.faq-q:hover { color: var(--color-coral-deep); }
+
+/* `:focus-within` fired on a mouse click too, so clicking a question drew a
+   keyboard focus ring around the whole row. `:focus-visible` on the summary
+   itself is the thing that actually means "navigating by keyboard". */
+.faq-q:focus-visible {
+  outline: 2px solid var(--color-yellow);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+/* A plus that becomes a minus. Drawn from two rules rather than set as a
+   glyph, so it lines up at any size and rotates cleanly. */
+.faq-sign {
+  position: relative;
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+}
+.faq-sign::before,
+.faq-sign::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  background: var(--color-ink-soft);
+  transition: transform 0.22s ease, opacity 0.22s ease;
+}
+.faq-sign::before { width: 14px; height: 1.5px; }
+.faq-sign::after  { width: 1.5px; height: 14px; }
+
+.faq-item[open] .faq-sign::after { transform: rotate(90deg); opacity: 0; }
+
+.faq-a {
+  padding: 0 0 1.25rem;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: var(--color-ink-soft);
+  max-width: 62ch;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .faq-sign::before,
+  .faq-sign::after { transition: none; }
+}
+
+/* ── Log in, top right ──────────────────────────────
+   Deliberately not a second button. This page sells to people without an
+   account; two buttons side by side make the returning merchant and the
+   prospect compete for the same corner. */
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+}
+
+.nav-login {
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: var(--color-ink-soft);
+  transition: color 0.2s ease;
+}
+.nav-login:hover { color: var(--color-ink); }
+.nav-login:focus-visible {
+  outline: 2px solid var(--color-yellow);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+@media (max-width: 620px) {
+  /* On a phone the demo button wins the corner; log in moves into the footer,
+     where it already lives. */
+  .nav-login { display: none; }
 }

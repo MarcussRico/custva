@@ -140,13 +140,23 @@ export function useLandingMotion(root: RefObject<HTMLElement | null>) {
       let gridPlayed = false;
       const grid = el.querySelector(".cadence-grid");
 
+      /* At maximum scroll there is no further scroll event, so anything still
+         sitting in the last 8% of the viewport would stay at opacity 0 for
+         ever — which is what happened to the phone number and the closing
+         line in the contact panel, the last two reveals on the page. Once the
+         document cannot scroll any further, the whole viewport counts. */
+      const atBottom = () =>
+        window.innerHeight + window.scrollY >=
+        document.documentElement.scrollHeight - 2;
+
       let ticking = false;
       const sweep = () => {
         ticking = false;
         const vh = window.innerHeight;
+        const limit = atBottom() ? vh : vh * 0.92;
         pending.forEach((node) => {
           const r = node.getBoundingClientRect();
-          if (r.top < vh * 0.92) {
+          if (r.top < limit) {
             pending.delete(node);
             /* already scrolled past — just show it, animating off-screen
                content is wasted work and looks broken on the way back up */
@@ -155,7 +165,7 @@ export function useLandingMotion(root: RefObject<HTMLElement | null>) {
         });
         if (!gridPlayed && grid) {
           const r = grid.getBoundingClientRect();
-          if (r.top < vh * 0.92) {
+          if (r.top < limit) {
             gridPlayed = true;
             const cells = grid.querySelectorAll<HTMLElement>("[data-cell]");
             if (r.bottom < 0) {

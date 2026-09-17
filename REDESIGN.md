@@ -392,3 +392,82 @@ before anything real runs on these URLs.
   needs a seeded instance: `db:migrate`, `db:seed`, `db:seed-lifecycle`.
 - The vector logo is a reconstruction from the bitmap. An SVG export from the
   original artwork would be better than either that or the cleaned PNGs.
+
+---
+
+## 10. "It looks like a blog" — 17 Sep 2026
+
+The note back was that the page read as a blog, without anything separating
+the sections. That was accurate, and the cause was structural rather than
+decorative: **Features, Why Now and FAQ were the same object three times** —
+eyebrow, big heading, list of icon + title + body. Only How It Works differed,
+because it had numbers. Three identical shapes in a row is what "blog" means.
+
+So the fix is not more decoration. Each section now has the shape of what it
+actually is, and the devices are not shared between them:
+
+| Section | What it is | How it is set |
+|---|---|---|
+| Why now | an argument | four claims on rules, large, **no icons** |
+| How it works | a sequence | numbered steps — the only numbers on the page |
+| Segments | a reading | **drawn data** — see below |
+| Features | a set | the icon grid, now the only place icons appear |
+| FAQ | a reference | collapsed, available rather than imposed |
+
+### Hierarchy
+
+Reordered as asked: **Why now → How it works → Segments → Platform features**.
+The nav order now mirrors the page, so it reads as a map rather than a menu.
+
+### The segments, drawn rather than described
+
+This is the signature, and the answer to "something to differentiate the
+segments in a unique way". Four more cards saying *"Overdue: past their usual
+gap"* would have been a fifth copy of the same object.
+
+So it does not describe the segments; it shows them. Each row is a timeline
+with ticks where the customer visited and a bar for today. **The gap between
+the last tick and today is the entire definition** — evenly spaced means on
+schedule, a widening gap means overdue, one tick and silence means long gone.
+A reader understands the model before reading a word of it.
+
+Colour appears on only the two rows where something is wrong. Colouring all
+four would make none of them mean anything.
+
+It is also the one thing here a competitor cannot copy without first computing
+per-customer rhythm, which is the actual product.
+
+### Log in, top right
+
+Where a returning merchant looks for it. Deliberately a quiet link rather than
+a second button: the page sells to people without an account, and two buttons
+in the same corner make the prospect and the returning merchant compete.
+Hidden below 620px, where it already lives in the footer.
+
+### FAQ
+
+Native `<details>`, closed. Five answers laid open read as page content and pad
+the page with text nobody asked for. Native rather than a JS accordion: it
+opens with no script, it is keyboard-operable for free, and ctrl-F still finds
+text inside a closed one in most browsers.
+
+### Three bugs found while verifying
+
+- **Dead CSS with live class names.** The previous FAQ was a JS accordion whose
+  `.faq-a { overflow: hidden; max-height: 0 }` was still in the stylesheet. The
+  new `<details>` markup reused the class, so every answer collapsed to one
+  clipped line — which looked like a layout bug rather than an old rule still
+  firing. Deleted rather than renamed around.
+- **A click drew a keyboard focus ring.** `:focus-within` on the row fires for
+  a mouse click too. `:focus-visible` on the summary is the thing that actually
+  means "navigating by keyboard".
+- **The last two reveals never fired.** The scroll sweep used a threshold of
+  92% of viewport height, but at maximum scroll anything in the final 8% never
+  crosses it and no further scroll event ever arrives to re-check. The phone
+  number and the closing line in the contact panel stayed at opacity 0
+  permanently. The whole viewport now counts once the document cannot scroll
+  further.
+
+That last one was only visible by driving real wheel events all the way to the
+end of the document — scrolling each section into view stops short, because the
+footer sits below the contact panel.

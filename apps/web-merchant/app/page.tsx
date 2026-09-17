@@ -18,6 +18,7 @@ import {
   IconTrend,
 } from "../components/landing/brand";
 import { ReturnLoop } from "../components/landing/ReturnLoop";
+import { Segments } from "../components/landing/Segments";
 import { useLandingMotion } from "../components/landing/motion";
 
 /* The original landing page's copy, in the current design language.
@@ -25,11 +26,12 @@ import { useLandingMotion } from "../components/landing/motion";
    WhatsApp last and no emoji, no "Our Product in Action", the real flow in
    How It Works, a nav that reaches every section, and the new number. */
 
+/* Order mirrors the page, so the nav is a map rather than a menu. */
 const NAV = [
-  { label: "Features", href: "#features" },
-  { label: "How it works", href: "#how-it-works" },
   { label: "Why now", href: "#why-now" },
-  { label: "FAQ", href: "#faq" },
+  { label: "How it works", href: "#how-it-works" },
+  { label: "Segments", href: "#segments" },
+  { label: "Features", href: "#features" },
   { label: "Contact", href: "#contact" },
 ];
 
@@ -149,9 +151,17 @@ export default function LandingPage() {
               </a>
             ))}
           </nav>
-          <a href="#contact" className="btn btn-primary">
-            Book a demo
-          </a>
+          {/* Log in sits top right, where a returning merchant looks for it.
+              Kept quiet next to the demo button: the page is selling to people
+              who do not have an account yet, and the two must not compete. */}
+          <div className="nav-actions">
+            <Link href="/login" className="nav-login">
+              Log in
+            </Link>
+            <a href="#contact" className="btn btn-primary">
+              Book a demo
+            </a>
+          </div>
         </header>
       </div>
 
@@ -195,24 +205,24 @@ export default function LandingPage() {
         <ReturnLoop />
       </section>
 
-      {/* ── Features ──────────────────────────────────────────────── */}
-      <section className="shell band band-line pt-20" id="features">
+      {/* ── Why now ────────────────────────────────────────────────
+           An argument, so it is set as one: four claims, each on its own
+           rule, no icons. The icon grid belongs to Features and appearing in
+           both is what made the two sections indistinguishable. */}
+      <section className="shell band band-line pt-20" id="why-now">
         <p className="instrument eyebrow" data-reveal>
-          Platform features
+          Why now
         </p>
         <h2 className="display-lg max-w-[22ch]" data-reveal>
-          Everything your business needs to retain more customers
+          The perfect time to systemise retention
         </h2>
 
-        <div className="grid-2 mt-12">
-          {FEATURES.map((f) => (
-            <article key={f.title} className="card tilt" data-reveal data-tilt>
-              <f.Icon className="feature-icon" />
-              <h3 className="display-md">{f.title}</h3>
-              <p className="mt-2.5 text-[0.95rem] leading-relaxed text-ink-soft">
-                {f.body}
-              </p>
-            </article>
+        <div className="claims mt-12">
+          {WHY_NOW.map((w) => (
+            <div key={w.title} className="claim" data-reveal>
+              <h3 className="claim-title">{w.title}</h3>
+              <p className="claim-body">{w.body}</p>
+            </div>
           ))}
         </div>
       </section>
@@ -274,24 +284,44 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Why now ───────────────────────────────────────────────── */}
-      <section className="shell band band-line pt-20" id="why-now">
+      {/* ── Segments ───────────────────────────────────────────────
+           The signature. Every other section on this page is words about the
+           product; this one is the product's actual output, drawn. It sits
+           immediately after the flow because the flow ends at "we learn their
+           rhythm" and this is what that produces. */}
+      <section className="shell band band-line pt-20" id="segments">
         <p className="instrument eyebrow" data-reveal>
-          Why now
+          What we work out
+        </p>
+        <h2 className="display-lg max-w-[24ch]" data-reveal>
+          Four states, read from each customer&apos;s own rhythm
+        </h2>
+        <p className="lede mt-6 max-w-[54ch]" data-reveal>
+          The gap between someone&apos;s last visit and today is the whole
+          decision. Here is what that looks like.
+        </p>
+
+        <Segments />
+      </section>
+
+      {/* ── Features ──────────────────────────────────────────────── */}
+      <section className="shell band band-line pt-20" id="features">
+        <p className="instrument eyebrow" data-reveal>
+          Platform features
         </p>
         <h2 className="display-lg max-w-[22ch]" data-reveal>
-          The perfect time to systemise retention
+          Everything your business needs to retain more customers
         </h2>
 
-        <div className="mt-10">
-          {WHY_NOW.map((w) => (
-            <div key={w.title} className="why-row hoverable" data-reveal>
-              <w.Icon className="why-icon" />
-              <div>
-                <h3 className="why-title">{w.title}</h3>
-                <p className="why-desc">{w.body}</p>
-              </div>
-            </div>
+        <div className="grid-2 mt-12">
+          {FEATURES.map((f) => (
+            <article key={f.title} className="card tilt" data-reveal data-tilt>
+              <f.Icon className="feature-icon" />
+              <h3 className="display-md">{f.title}</h3>
+              <p className="mt-2.5 text-[0.95rem] leading-relaxed text-ink-soft">
+                {f.body}
+              </p>
+            </article>
           ))}
         </div>
       </section>
@@ -305,12 +335,22 @@ export default function LandingPage() {
           Common questions, answered
         </h2>
 
-        <div className="mt-10">
+        {/* Collapsed. Five answers laid open read as page content and pad the
+            page out with text nobody asked for; closed, they are there for the
+            one reader who wants them.
+
+            Native <details>, not a JS accordion: it opens with no script, it
+            is keyboard-operable for free, and ctrl-F still finds the text
+            inside a closed one in most browsers. */}
+        <div className="faq mt-10">
           {FAQS.map((f) => (
-            <div key={f.q} className="answer-row" data-reveal>
-              <p className="answer-q">{f.q}</p>
-              <p className="answer-a">{f.a}</p>
-            </div>
+            <details key={f.q} className="faq-item" data-reveal>
+              <summary className="faq-q">
+                <span>{f.q}</span>
+                <span className="faq-sign" aria-hidden="true" />
+              </summary>
+              <p className="faq-a">{f.a}</p>
+            </details>
           ))}
         </div>
       </section>
