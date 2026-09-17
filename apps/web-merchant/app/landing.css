@@ -1288,7 +1288,14 @@
    picture of measurement, which is what this product sells, and it stays out
    of the way of type in a way a blob does not.
 ════════════════════════════════════════════════════ */
-.hero { position: relative; }
+.hero {
+  position: relative;
+  /* The field is inset negatively and 130% tall, so without this it ran on
+     past the hero and the outer contours sat behind the Why now heading.
+     `clip` rather than `hidden` — hidden would make the hero a scroll
+     container, which breaks the sticky nav above it. */
+  overflow: clip;
+}
 
 /* Behind the copy and behind nothing else. The hero's own stacking context
    keeps it from sliding under later sections. */
@@ -1309,6 +1316,17 @@
   fill: none;
   stroke: var(--color-ink);
   stroke-width: 1.15;
+  /* Pointer parallax, written by the handler in motion.ts as a fraction of
+     the hero. `translate` is a separate property from `transform`, so this
+     composes with the drift animation below instead of fighting it — one
+     drives translate, the other transform, and neither overwrites the other.
+     
+     Multiplied by the ring index, so outer rings travel further and the field
+     has depth rather than sliding as one sheet. */
+  translate:
+    calc(var(--mx, 0) * 1px * (var(--i) + 2) * 2.6)
+    calc(var(--my, 0) * 1px * (var(--i) + 2) * 1.9);
+  transition: translate 420ms cubic-bezier(0.22, 0.61, 0.36, 1);
   /* Outer rings fade, so the field reads as depth rather than as a flat
      pattern laid over the page. `--i` is set per path. */
   opacity: calc(0.16 - var(--i) * 0.012);
@@ -1316,14 +1334,14 @@
   /* Each ring on its own slow cycle. Staggering by index is what makes the
      field breathe instead of pulsing in unison — in unison it looks like a
      sonar ping, which is a different and much cheaper effect. */
-  animation: topo-drift calc(34s + var(--i) * 4s) ease-in-out infinite alternate;
-  animation-delay: calc(var(--i) * -2.4s);
-  will-change: transform;
+  animation: topo-drift calc(19s + var(--i) * 2.6s) ease-in-out infinite alternate;
+  animation-delay: calc(var(--i) * -1.7s);
+  will-change: transform, translate;
 }
 
 @keyframes topo-drift {
-  from { transform: translate(0, 0) scale(1); }
-  to   { transform: translate(22px, -14px) scale(1.045); }
+  from { transform: translate(-14px, 9px) scale(0.985); }
+  to   { transform: translate(26px, -17px) scale(1.055); }
 }
 
 /* The warm tint is a *lighter* ground than white in places, so the accents
@@ -1337,5 +1355,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .topo-line { animation: none; }
+  /* Both kinds of motion go. The parallax is pointer-driven rather than
+     autoplaying, but someone who has asked for less movement has not asked
+     for movement they trigger by accident either. */
+  .topo-line {
+    animation: none;
+    translate: none;
+    transition: none;
+  }
 }

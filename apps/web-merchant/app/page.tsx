@@ -11,8 +11,8 @@ import {
   IconBubble,
   IconClock,
   IconCoin,
-  IconCounter,
   IconFilter,
+  IconShield,
   IconPeople,
   IconStore,
   IconTrend,
@@ -40,8 +40,10 @@ const BUSINESSES = [
   "Restaurants",
   "Bakeries",
   "Salons",
+  "Fashion stores",
   "Retail stores",
   "Gyms",
+  "Hospitals",
 ];
 
 const FEATURES = [
@@ -71,9 +73,9 @@ const FEATURES = [
     body: "Automate follow-ups, re-engagement sequences, and milestone rewards without any manual effort.",
   },
   {
-    Icon: IconCounter,
-    title: "Built for the counter",
-    body: "A POS-style capture screen your staff can use between customers. No training required.",
+    Icon: IconShield,
+    title: "Secure & Compliant",
+    body: "Built on Indian infrastructure. DPDP-aligned data handling with role-based access controls.",
   },
 ];
 

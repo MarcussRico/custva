@@ -166,6 +166,55 @@ export function useLandingMotion(root: RefObject<HTMLElement | null>) {
         window.removeEventListener("resize", onScrollTick);
       });
 
+      /* ── Topography: the contour field follows the pointer ───────
+         The rings already drift on their own slow cycles; this adds the
+         parallax that makes the field feel like depth rather than a picture.
+         Outer rings travel further, which is the whole illusion.
+
+         Two custom properties on the SVG, read by `translate` on each path —
+         deliberately not `transform`, because the drift animation owns that
+         and an inline transform would simply replace it.
+
+         Listener on the hero rather than the window: a pointer three sections
+         down should not be moving something nobody can see. */
+      const topo = el.querySelector<SVGElement>(".topo");
+      const heroSection = el.querySelector<HTMLElement>(".hero");
+
+      if (topo && heroSection) {
+        let topoFrame = 0;
+
+        const onTopoMove = (e: PointerEvent) => {
+          if (topoFrame) return;
+          topoFrame = requestAnimationFrame(() => {
+            topoFrame = 0;
+            const r = heroSection.getBoundingClientRect();
+            /* -1..1 from the centre, so the field leans away from the cursor
+               the way a parallax layer behind glass would. */
+            const nx = ((e.clientX - r.left) / r.width - 0.5) * -2;
+            const ny = ((e.clientY - r.top) / r.height - 0.5) * -2;
+            topo.style.setProperty("--mx", nx.toFixed(3));
+            topo.style.setProperty("--my", ny.toFixed(3));
+          });
+        };
+
+        const onTopoLeave = () => {
+          if (topoFrame) cancelAnimationFrame(topoFrame);
+          topoFrame = 0;
+          /* Back to rest, and the CSS transition carries it there rather than
+             snapping. */
+          topo.style.setProperty("--mx", "0");
+          topo.style.setProperty("--my", "0");
+        };
+
+        heroSection.addEventListener("pointermove", onTopoMove);
+        heroSection.addEventListener("pointerleave", onTopoLeave);
+        cleanups.push(() => {
+          heroSection.removeEventListener("pointermove", onTopoMove);
+          heroSection.removeEventListener("pointerleave", onTopoLeave);
+          if (topoFrame) cancelAnimationFrame(topoFrame);
+        });
+      }
+
       /* ── Tilt: cards behave like floating boards under pressure ──
          The edge nearest the cursor is pushed away, which is what a finger
          on a suspended panel actually does. Values go out as custom
