@@ -1,0 +1,8 @@
+.token
+shots/
+stills/
+check/
+manifest.json
+*.mp4
+*.log
+node_modules/

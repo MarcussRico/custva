@@ -1,0 +1,725 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Custva cafe walkthrough</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Fraunces:opsz,wght,SOFT@9..144,400..700,50&family=Instrument+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=block" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f4ecdb;
+    --paper-2: #efe4cc;
+    --ink: #1c1a16;
+    --navy: #011244;
+    --marker: #d9542c;
+    --marker-soft: #f3d9cc;
+    --leaf: #2f8f5b;
+    --gold: #fdd304;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--paper); }
+  body { font-family: "Instrument Sans", system-ui, sans-serif; color: var(--ink); }
+  #stage { position: absolute; inset: 0; overflow: hidden; background: var(--paper); }
+  /* Warm ground: one restrained radial and a faint line drawing, not a flat fill. */
+  #bg { position: absolute; inset: 0;
+    background:
+      radial-gradient(1200px 700px at 72% 18%, #fbf5e8 0%, rgba(251,245,232,0) 70%),
+      radial-gradient(900px 600px at 10% 100%, #eadcbf 0%, rgba(234,220,191,0) 70%),
+      var(--paper); }
+  #window { position: absolute; left: 64px; top: 104px; width: 1792px; height: 944px;
+    border-radius: 18px; overflow: hidden; background: #fffcf2;
+    box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 30px 60px -20px rgba(60,40,10,.35), 0 8px 20px -8px rgba(60,40,10,.25); }
+  #window img { position: absolute; left: 0; top: 0; transform-origin: 0 0; image-rendering: auto; }
+  #fx { position: absolute; inset: 0; pointer-events: none; }
+  #card { position: absolute; inset: 0; }
+  #caption { position: absolute; left: 50%; bottom: 52px; transform: translateX(-50%);
+    max-width: 1420px; padding: 18px 30px 20px; border-radius: 14px;
+    background: rgba(14, 18, 36, .86); color: #fbf7ee; font-size: 35px; line-height: 1.32;
+    font-weight: 500; letter-spacing: -0.005em; text-align: center;
+    box-shadow: 0 10px 30px -10px rgba(0,0,0,.45); }
+  #caption b { color: var(--gold); font-weight: 600; }
+  #chapter { position: absolute; left: 64px; top: 34px; display: flex; gap: 12px; align-items: center;
+    padding: 8px 16px 9px 10px; border-radius: 999px; background: rgba(1,18,68,.9); color: #fbf7ee;
+    font-size: 21px; font-weight: 600; box-shadow: 0 6px 16px -6px rgba(0,0,0,.35); }
+  #chapter span { font-family: "DM Mono", monospace; font-size: 17px; font-weight: 500;
+    background: var(--gold); color: var(--navy); border-radius: 999px; padding: 3px 10px; }
+  #demo { position: absolute; right: 64px; top: 38px; font-size: 18px; font-weight: 600; color: #6a5a3a;
+    background: rgba(244,236,219,.94); border: 1px solid #d9c9a6; border-radius: 999px; padding: 6px 14px; }
+  #cursor { position: absolute; left: 0; top: 0; width: 34px; height: 34px; pointer-events: none;
+    filter: drop-shadow(0 3px 4px rgba(0,0,0,.35)); }
+  #ripple { position: absolute; width: 20px; height: 20px; border-radius: 50%; border: 3px solid var(--marker); }
+  #grain { position: absolute; inset: -40px; pointer-events: none; opacity: .09; mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.2  0 0 0 0 0.15  0 0 0 0 0.1  0 0 0 1.2 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
+  #vignette { position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0) 60%, rgba(40,25,5,.16) 100%); }
+  .tag { position: absolute; font-family: "Caveat", cursive; font-weight: 700; font-size: 40px; line-height: 1.02;
+    color: var(--marker); background: #fffaf0; padding: 8px 16px 10px; border-radius: 10px;
+    box-shadow: 0 8px 18px -8px rgba(80,40,10,.45), 0 0 0 1.5px rgba(217,84,44,.25); white-space: nowrap; }
+  .card-title { font-family: "Fraunces", serif; font-variation-settings: "SOFT" 50, "opsz" 144; font-weight: 600;
+    letter-spacing: -0.02em; color: var(--navy); }
+  .mono { font-family: "DM Mono", monospace; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bg"></div>
+  <div id="window"></div>
+  <svg id="fx" width="1920" height="1080" viewBox="0 0 1920 1080"></svg>
+  <div id="tags"></div>
+  <div id="card"></div>
+  <svg id="cursor" viewBox="0 0 24 24"><path d="M4 2 L4 19 L8.6 14.8 L11.6 21.6 L14.4 20.4 L11.4 13.8 L17.6 13.6 Z" fill="#111" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>
+  <div id="ripple"></div>
+  <div id="chapter"><span>01</span><em style="font-style:normal">Chapter</em></div>
+  <div id="demo">Demo · synthetic café data</div>
+  <div id="caption"></div>
+  <div id="vignette"></div>
+  <div id="grain"></div>
+</div>
+<script>
+const M = window.MANIFEST;
+const WIN = { x: 64, y: 104, w: 1792, h: 944 };
+const FPS = 30;
+
+/* ── helpers ───────────────────────────────────────────────────────────── */
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const ease = (x) => { x = clamp(x, 0, 1); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+const easeOut = (x) => 1 - Math.pow(1 - clamp(x, 0, 1), 3);
+const lerp = (a, b, k) => a + (b - a) * k;
+const fade = (t, t0, t1, d = .35) => clamp(Math.min((t - t0) / d, (t1 - t) / d), 0, 1);
+const inr = (n) => "₹" + Math.round(n).toLocaleString("en-IN");
+const $ = (id) => document.getElementById(id);
+const SVGNS = "http://www.w3.org/2000/svg";
+function svg(tag, attrs, parent) {
+  const el = document.createElementNS(SVGNS, tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  if (parent) parent.appendChild(el);
+  return el;
+}
+
+/* ── images ────────────────────────────────────────────────────────────── */
+const imgs = {};
+function imgFor(file) {
+  if (!imgs[file]) {
+    const im = new Image();
+    im.src = "shots/" + file;
+    im.style.display = "none";
+    $("window").appendChild(im);
+    imgs[file] = im;
+  }
+  return imgs[file];
+}
+async function preload() {
+  const files = [];
+  for (const [k, v] of Object.entries(M)) {
+    if (v && v.file) files.push(v.file);
+    if (v && v.frames) v.frames.forEach((f) => files.push(f.file));
+  }
+  await Promise.all(files.map((f) => imgFor(f).decode()));
+  await document.fonts.ready;
+}
+
+/* ── camera ────────────────────────────────────────────────────────────── */
+/* A camera shot is {cx, cy, z}: the page point at the window centre, and
+   stage pixels per page pixel. Clamped so the page always fills the window. */
+function shotFor(page, focus, z) {
+  const W = page.w, H = page.h;
+  let cx = focus.x + focus.w / 2, cy = focus.y + focus.h / 2;
+  if (focus.anchor === "top") cy = focus.y + (WIN.h / z) / 2 - 24 / z;
+  if (focus.top != null) cy = focus.top + (WIN.h / z) / 2;
+  return clampShot({ cx, cy, z }, W, H);
+}
+function clampShot(s, W, H) {
+  const halfW = WIN.w / 2 / s.z, halfH = WIN.h / 2 / s.z;
+  const cx = W * s.z <= WIN.w ? W / 2 : clamp(s.cx, halfW, W - halfW);
+  const cy = H * s.z <= WIN.h ? H / 2 : clamp(s.cy, halfH, H - halfH);
+  return { cx, cy, z: s.z };
+}
+function toStage(shot, r) {
+  const left = WIN.x + WIN.w / 2 - shot.cx * shot.z;
+  const top = WIN.y + WIN.h / 2 - shot.cy * shot.z;
+  return { x: left + r.x * shot.z, y: top + r.y * shot.z, w: r.w * shot.z, h: r.h * shot.z };
+}
+const FIT = 1792 / 1440;
+const MOVE = 1.3;
+
+/* ── hand-drawn marks ──────────────────────────────────────────────────── */
+function wobble(points, seed, amp = 1.3) {
+  return points.map((p, i) => {
+    const n = Math.sin(i * 0.9 + seed * 3.1) * 0.6 + Math.sin(i * 0.37 + seed) * 0.4;
+    return [p[0] + n * amp, p[1] + Math.cos(i * 0.7 + seed * 1.7) * amp * .8];
+  });
+}
+function bez(p0, p1, p2, p3, n = 48) {
+  const out = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, u = 1 - t;
+    out.push([
+      u*u*u*p0[0] + 3*u*u*t*p1[0] + 3*u*t*t*p2[0] + t*t*t*p3[0],
+      u*u*u*p0[1] + 3*u*u*t*p1[1] + 3*u*t*t*p2[1] + t*t*t*p3[1]
+    ]);
+  }
+  return out;
+}
+const d = (pts) => "M" + pts.map((p) => p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" L");
+function lenOf(pts) { let L = 0; for (let i = 1; i < pts.length; i++) L += Math.hypot(pts[i][0]-pts[i-1][0], pts[i][1]-pts[i-1][1]); return L; }
+
+/* Draw-on stroke with a paper halo underneath, so it reads on any UI. */
+function stroke(parent, pts, k, { width = 4.5, color = "var(--marker)", halo = true } = {}) {
+  /* A zero-length dash with a round cap still paints a dot, so a line that
+     has not started drawing is not emitted at all. */
+  if (!(k > 0.002)) return;
+  const L = lenOf(pts), path = d(pts);
+  if (halo) svg("path", { d: path, fill: "none", stroke: "#fffaf0", "stroke-width": width + 6, "stroke-linecap": "round", "stroke-linejoin": "round",
+    "stroke-dasharray": L, "stroke-dashoffset": L * (1 - k), opacity: .9 }, parent);
+  svg("path", { d: path, fill: "none", stroke: color, "stroke-width": width, "stroke-linecap": "round", "stroke-linejoin": "round",
+    "stroke-dasharray": L, "stroke-dashoffset": L * (1 - k) }, parent);
+}
+function ring(parent, r, k, seed = 1, pad = 10) {
+  const x0 = r.x - pad, y0 = r.y - pad, x1 = r.x + r.w + pad, y1 = r.y + r.h + pad, rad = Math.min(18, (y1 - y0) / 2);
+  const pts = [];
+  const push = (x, y) => pts.push([x, y]);
+  const seg = (ax, ay, bx, by, n) => { for (let i = 0; i <= n; i++) push(lerp(ax, bx, i / n), lerp(ay, by, i / n)); };
+  const arc = (cx, cy, a0, a1) => { for (let i = 0; i <= 6; i++) { const a = lerp(a0, a1, i / 6); push(cx + Math.cos(a) * rad, cy + Math.sin(a) * rad); } };
+  seg(x0 + rad, y0 + 2, x1 - rad, y0, 20); arc(x1 - rad, y0 + rad, -Math.PI/2, 0);
+  seg(x1, y0 + rad, x1 + 1, y1 - rad, 8); arc(x1 - rad, y1 - rad, 0, Math.PI/2);
+  seg(x1 - rad, y1, x0 + rad, y1 + 1, 20); arc(x0 + rad, y1 - rad, Math.PI/2, Math.PI);
+  seg(x0, y1 - rad, x0 - 1, y0 + rad, 8); arc(x0 + rad, y0 + rad, Math.PI, Math.PI * 1.5);
+  seg(x0 + rad, y0, x0 + rad + 60, y0 - 3, 4); // overshoot, like a pen that did not stop
+  stroke(parent, wobble(pts, seed, 1.1), k, { width: 4 });
+}
+function arrow(parent, from, to, k, bend = .35, seed = 2) {
+  const dx = to[0] - from[0], dy = to[1] - from[1];
+  const nx = -dy, ny = dx;
+  const c1 = [from[0] + dx * .25 + nx * bend, from[1] + dy * .25 + ny * bend];
+  const c2 = [from[0] + dx * .75 + nx * bend * .6, from[1] + dy * .75 + ny * bend * .6];
+  const pts = wobble(bez(from, c1, c2, to), seed, 1.2);
+  const body = clamp(k / .8, 0, 1);
+  stroke(parent, pts, body);
+  if (k > .8) {
+    const h = easeOut((k - .8) / .2);
+    const a = pts[pts.length - 1], b = pts[pts.length - 5];
+    const ang = Math.atan2(a[1] - b[1], a[0] - b[0]);
+    for (const s of [-1, 1]) {
+      const e = [a[0] - Math.cos(ang + s * .5) * 24 * h, a[1] - Math.sin(ang + s * .5) * 24 * h];
+      stroke(parent, [a, e], 1);
+    }
+  }
+}
+function spotlight(parent, r, k, pad = 14) {
+  if (k <= 0) return;
+  const id = "m" + Math.round(r.x) + "_" + Math.round(r.y);
+  const defs = svg("defs", {}, parent);
+  const mask = svg("mask", { id }, defs);
+  svg("rect", { x: 0, y: 0, width: 1920, height: 1080, fill: "#fff" }, mask);
+  svg("rect", { x: r.x - pad, y: r.y - pad, width: r.w + pad * 2, height: r.h + pad * 2, rx: 14, fill: "#000" }, mask);
+  svg("rect", { x: WIN.x, y: WIN.y, width: WIN.w, height: WIN.h, rx: 18, fill: "rgba(28,20,8,.34)", mask: `url(#${id})`, opacity: k }, parent);
+}
+
+/* A tag (handwritten note) with an arrow to a target rect. */
+function note(parent, tagsEl, t, a, target) {
+  const k = clamp((t - a.t0) / .9, 0, 1), out = clamp((a.t1 - t) / .3, 0, 1);
+  if (k <= 0 || out <= 0) return;
+  const g = svg("g", { opacity: out }, parent);
+  if (a.spot) spotlight(g, target, easeOut(k * 1.6) * .95);
+  if (a.ring !== false) ring(g, target, ease(k * 1.3), a.seed || 1, a.pad ?? 10);
+  const tag = document.createElement("div");
+  tag.className = "tag";
+  tag.innerHTML = a.label;
+  tag.style.opacity = out * clamp((k - .15) / .3, 0, 1);
+  tagsEl.appendChild(tag);
+  const tw = tag.offsetWidth, th = tag.offsetHeight;
+  const tx = clamp(a.at[0], 80, 1840 - tw), ty = clamp(a.at[1], 90, 1000 - th);
+  tag.style.left = tx + "px"; tag.style.top = ty + "px";
+  tag.style.transform = `rotate(${a.rot ?? -1.6}deg) translateY(${(1 - easeOut(k * 2)) * 8}px)`;
+  if (a.arrow === false) return;
+  /* Arrow leaves the tag edge nearest the target and lands just outside the ring. */
+  const tcx = tx + tw / 2, tcy = ty + th / 2;
+  const gx = clamp(tcx, target.x - 14, target.x + target.w + 14), gy = clamp(tcy, target.y - 14, target.y + target.h + 14);
+  const toTarget = [gx + (tcx - gx > 0 ? 18 : tcx - gx < 0 ? -18 : 0), gy + (tcy - gy > 0 ? 18 : tcy - gy < 0 ? -18 : 0)];
+  const fx = clamp(toTarget[0], tx, tx + tw), fy = clamp(toTarget[1], ty, ty + th);
+  const from = [fx + (fx === tx ? -8 : fx === tx + tw ? 8 : 0), fy + (fy === ty ? -8 : fy === ty + th ? 8 : 0)];
+  arrow(g, from, a.to ? a.to : toTarget, clamp((k - .25) / .75, 0, 1), a.bend ?? .3, a.seed || 2);
+}
+
+/* ── scenes ────────────────────────────────────────────────────────────── */
+const N = M.numbers;
+const D = N.dashboard;
+const D0 = M.dashboardNumbers; // what the dashboard screenshot shows
+const pending = (N.commission.pending || {});
+const SC = [];
+let T = 0;
+function scene(dur, def) { def.start = T; def.dur = dur; SC.push(def); T += dur; return def; }
+
+/* Coffee-tumbler line drawing, drawn on over the title. */
+function tumbler(parent, x, y, s, k, color = "#b08a4a") {
+  const P = (arr) => arr.map(([a, b]) => [x + a * s, y + b * s]);
+  const lines = [
+    P([[-52, -100], [-38, 40], [38, 40], [52, -100]]),                   // tumbler: tall, tapering
+    P([[-58, -100], [58, -100]]),                                        // rim
+    P([[-120, 40], [-100, 92], [100, 92], [120, 40], [-120, 40]]),       // davara: the wide bowl beneath
+    P([[-20, -120], [-10, -140], [-24, -160], [-12, -182]]),             // steam
+    P([[18, -118], [28, -140], [14, -160], [26, -184]]),
+  ];
+  const poly = (l, n = 14) => { const out = []; for (let i = 1; i < l.length; i++) for (let j = 0; j < n; j++) out.push([lerp(l[i-1][0], l[i][0], j / n), lerp(l[i-1][1], l[i][1], j / n)]); out.push(l[l.length - 1]); return out; };
+  lines.forEach((l, i) => {
+    const pts = i >= 3 ? bez(l[0], l[1], l[2], l[3], 30) : poly(l);
+    stroke(parent, wobble(pts, i + 3, 1.1), clamp(k * 1.6 - i * .15, 0, 1), { width: 3, color, halo: false });
+  });
+}
+
+scene(6.5, { chapter: null, card(t, el, fx) {
+  const a = easeOut(t / 1.2), out = fade(t, 0, 6.5, .5);
+  el.innerHTML = `
+    <div style="position:absolute;left:180px;top:300px;opacity:${a * out};transform:translateY(${(1 - a) * 18}px)">
+      <div class="mono" style="font-size:22px;letter-spacing:.14em;color:#8a6a3a;margin-bottom:26px">CUSTVA · FOR CAFÉS</div>
+      <div class="card-title" style="font-size:104px;line-height:1.02;max-width:1100px">Your regulars,<br>back at the counter.</div>
+      <div style="font-size:32px;color:#4a4032;margin-top:34px;max-width:900px;line-height:1.4">A walkthrough of the merchant dashboard — what each screen does, and why it matters to a café.</div>
+    </div>`;
+  tumbler(fx, 1500, 560, 1.7, clamp((t - .4) / 2.2, 0, 1) * out);
+}});
+
+scene(8, { chapter: null, card(t, el) {
+  const a = easeOut(t / 1), b = easeOut((t - 2.4) / 1), out = fade(t, 0, 8, .5);
+  el.innerHTML = `
+    <div style="position:absolute;left:180px;top:330px;max-width:1500px;opacity:${out}">
+      <div class="card-title" style="font-size:78px;line-height:1.1;opacity:${a};transform:translateY(${(1-a)*14}px)">Every café has regulars who quietly stop coming.</div>
+      <div style="font-size:40px;color:#5a4a33;margin-top:36px;line-height:1.35;opacity:${b};transform:translateY(${(1-b)*14}px)">Nobody notices until they are gone. Custva notices the week they miss — and sends one well-timed WhatsApp.</div>
+    </div>`;
+}});
+
+/* 02 — Dashboard */
+const dash = M.dashboard, R = dash.rects;
+scene(31, { chapter: ["02", "The morning view"], page: dash,
+  cam: [
+    { t: 0, focus: { x: 0, y: 0, w: 1440, h: 900, anchor: "top" }, z: FIT },
+    { t: 2.2, focus: { ...R.hero, top: 62 }, z: 1.5 },
+    { t: 12.4, focus: R.overdue, z: 1.5 },
+    { t: 24, focus: R.consentGap, z: 1.45 },
+  ],
+  notes: [
+    { t0: 4.2, t1: 8.3, key: "headline", label: "who needs you today", at: [720, 560], spot: true, seed: 3 },
+    { t0: 8.5, t1: 12.2, key: "proof", label: "money reminders brought back", at: [1060, 470], seed: 5, bend: -.3 },
+    { t0: 14.2, t1: 19, key: "row1when", label: "late by <u>their own</u> habit", at: [860, 640], seed: 7 },
+    { t0: 19.2, t1: 23.8, key: "messageThem", label: "one tap to message them", at: [1120, 200], seed: 9, bend: -.35 },
+    { t0: 25.8, t1: 30.6, key: "consentGap", label: "no “yes” = no message. Ever.", at: [760, 760], seed: 11 },
+  ],
+  captions: [
+    [.4, 4, "Open Custva in the morning. The dashboard starts with one question: <b>who needs you today?</b>"],
+    [4.2, 8.3, `${D0.overdue.count} regulars have missed their usual visit — <b>${D0.overdue.contactable}</b> of them can be messaged right now.`],
+    [8.5, 12.2, `In the last 30 days, visits that followed a Custva reminder brought in <b>${inr(D0.last30Days.custvaInfluencedRevenue)}</b>.`],
+    [12.6, 19, "The list is ordered by who is most likely to be won back. Late means <b>late for that person</b> — not a fixed 30 days."],
+    [19.2, 23.6, "One tap takes these exact people into a WhatsApp campaign."],
+    [24.2, 30.6, "Customers who never said yes to WhatsApp are <b>never messaged</b>. Staff just ask at the counter next time."],
+  ]
+});
+
+/* 03 — Anjali, before she walks in */
+const prof = M.profile, PR = prof.rects;
+scene(28, { chapter: ["03", "One customer, in plain words"], page: prof,
+  cam: [
+    { t: 0, focus: { x: 240, y: 70, w: 1180, h: 470, top: 64 }, z: 1.45 },
+    { t: 16.6, focus: PR.messages, z: 1.45 },
+  ],
+  notes: [
+    { t0: 1.4, t1: 6.4, key: "status", label: "why she's flagged, in one sentence", at: [1000, 170], seed: 21, bend: .25 },
+    { t0: 6.6, t1: 11.4, key: "nextExpected", label: "late — for her", at: [1420, 640], seed: 23 },
+    { t0: 11.6, t1: 16.4, key: "quote", label: "lined up, only if she stays away", at: [1180, 620], seed: 25, bend: -.3 },
+    { t0: 18.0, t1: 27.4, key: "msg1", label: "the reminder — and she read it", at: [1100, 170], seed: 27, bend: .3 },
+  ],
+  captions: [
+    [.4, 6.4, "Tap any name for the full story. Anjali is <b>Overdue</b> — and Custva says why, in plain words."],
+    [6.6, 11.4, "She comes in every 7 days. Her next visit was due on the 23rd."],
+    [11.6, 16.4, "If she stays away, one more message is lined up — and it's <b>cancelled</b> the moment she walks in."],
+    [16.8, 22, "Here is the reminder Custva already sent her on the 25th. She <b>read</b> it."],
+    [22.2, 27.4, "Two days later, she walks into the café."],
+  ]
+});
+
+/* 03 — Counter, returning customer */
+const RET = M.returning;
+const retTimes = [0, 2.2, 2.35, 2.5, 2.65, 2.8, 2.95, 3.1, 3.25, 3.4, 3.55, 7.6, 7.8, 8.0, 9.6];
+scene(21, { chapter: ["04", "At the counter"], seq: RET, times: retTimes,
+  cam: [
+    { t: 0, focus: { x: 257, y: 80, w: 1146, h: 620 }, z: 1.34 },
+    { t: 9.9, focus: { x: 257, y: 330, w: 1146, h: 420 }, z: 1.34 },
+  ],
+  cursor: [
+    { t: 1.1, key: "phone", dx: .2, dy: .5 }, { t: 1.9, key: "phone", dx: .2, dy: .5, click: true },
+    { t: 6.9, key: "bill", dx: .3, dy: .5 }, { t: 7.4, key: "bill", dx: .3, dy: .5, click: true },
+    { t: 8.9, key: "save", dx: .5, dy: .5 }, { t: 9.5, key: "save", dx: .5, dy: .5, click: true },
+  ],
+  notes: [
+    { t0: 3.9, t1: 6.8, key: "card", frame: 11, label: "recognised: 11 visits, ₹3,160", at: [1180, 250], seed: 13, bend: -.3 },
+    { t0: 11.3, t1: 20.6, key: "saved", frame: 14, label: "staff see what happens next", at: [1240, 520], seed: 15, bend: -.3 },
+  ],
+  captions: [
+    [.3, 3.8, "At the counter, staff do <b>one thing</b>: type the customer's phone number."],
+    [3.9, 6.8, "Custva recognises Anjali — a weekly regular who has missed her week."],
+    [7, 10.1, "Type the bill. Save."],
+    [10.3, 15.3, "She came in two days after Custva's reminder, so this visit is marked <b>brought back by Custva</b>."],
+    [15.4, 20.6, "No training, no menus. If you can type a phone number, you can run Custva."],
+  ]
+});
+
+/* 04 — Counter, new customer */
+const NEW = M.newcust;
+const newTimes = [0, 1.4, 1.52, 1.64, 1.76, 1.88, 2.0, 2.12, 2.24, 2.36, 2.48, 3.4, 3.52, 3.64, 3.76, 3.88, 4.0, 4.12, 4.24, 4.36, 5.3, 5.45, 5.6, 7.2, 8.9];
+scene(17, { chapter: ["04", "At the counter"], seq: NEW, times: newTimes,
+  cam: [ { t: 0, focus: { x: 257, y: 200, w: 1146, h: 520 }, z: 1.4 } ],
+  cursor: [
+    { t: .8, key: "phone", dx: .2, dy: .5, click: true }, { t: 3.1, key: "name", dx: .3, dy: .5, click: true },
+    { t: 5.0, key: "bill", dx: .3, dy: .5, click: true }, { t: 6.6, key: "consent", dx: .015, dy: .35 }, { t: 7.1, key: "consent", dx: .015, dy: .35, click: true },
+    { t: 8.3, key: "save", dx: .5, dy: .5 }, { t: 8.8, key: "save", dx: .5, dy: .5, click: true },
+  ],
+  notes: [
+    { t0: 6.2, t1: 8.6, key: "consent", frame: 23, label: "ask once, tick once", at: [1150, 330], seed: 17, bend: -.3 },
+    { t0: 9.3, t1: 16.6, key: "saved", frame: 24, label: "first visit — thank-you goes out", at: [900, 300], seed: 19 },
+  ],
+  captions: [
+    [.3, 3, "A new face? Same box. No match, so staff add a name."],
+    [3.1, 6.1, "Name, bill — that's all Custva needs. Everything else is optional."],
+    [6.2, 9.2, "Ask if they'd like offers on WhatsApp. The exact words they agreed to are <b>saved with the record</b>."],
+    [9.3, 16.6, "Karthik is in. A thank-you WhatsApp is scheduled, and Custva starts learning his habit from here."],
+  ]
+});
+
+/* 05 — How we tap in: explainer */
+scene(44, { chapter: ["05", "How Custva taps in"], explainer: true,
+  captions: [
+    [.5, 7.6, "Do we only message on day 0, 3, 7 and 14? <b>Only for brand-new customers</b> — they don't have a habit yet."],
+    [7.8, 13.6, "The moment they come back, every message still waiting is <b>cancelled</b>."],
+    [13.8, 21.6, "From the second visit, Custva learns each person's <b>own rhythm</b> from the dates they actually came in."],
+    [21.8, 28.6, "A weekly regular who turns up on time gets <b>no reminder at all</b>. Nothing to fix, nothing sent."],
+    [28.8, 36.6, "A monthly family is nudged only when they're <b>late for them</b> — around day 37, never in week one."],
+    [36.8, 43.6, "And every message has hard limits, so customers never feel spammed."],
+  ]
+});
+
+/* 07 — Customers list */
+const cust = M.customers, CR = cust.rects;
+scene(11, { chapter: ["06", "Who needs attention"], page: cust,
+  cam: [ { t: 0, focus: { x: 240, y: 70, w: 1180, h: 560 }, z: 1.5 } ],
+  notes: [
+    { t0: 1.4, t1: 10.6, key: "dueCol", label: "how late — for them", at: [640, 390], seed: 29, bend: -.3 },
+    { t0: 4.6, t1: 10.6, key: "consentCol", label: "can we message?", at: [1260, 390], seed: 31, ring: true, bend: .3 },
+  ],
+  captions: [
+    [.3, 5.4, "The customer list filters to <b>Overdue</b> and <b>Long gone</b> in one tap."],
+    [5.5, 10.6, "Each row says how late they are for their own habit, and whether they've agreed to messages."],
+  ]
+});
+
+/* 08 — Messages (templates) */
+const tpl = M.templates, TR = tpl.rects;
+scene(24, { chapter: ["07", "The messages"], page: tpl,
+  cam: [
+    { t: 0, focus: TR.first, z: 1.36 },
+    { t: 8.5, focus: TR.second, z: 1.36 },
+    { t: 17, focus: TR.custom, z: 1.36 },
+  ],
+  notes: [
+    { t0: 1.3, t1: 8, key: "firstCards", label: "new customers: fixed 0 · 3 · 7 · 14", at: [700, 150], seed: 33, ring: false, arrow: false, rot: -2 },
+    { t0: 3.6, t1: 8, key: "chip", label: "approved by WhatsApp", at: [520, 850], seed: 35 },
+    { t0: 9.9, t1: 16.6, key: "lateCard", label: "sent only when they're late", at: [1340, 140], seed: 37, bend: .35 },
+    { t0: 12, t1: 16.6, key: "unused", label: "not used — habit timing instead", at: [300, 850], seed: 39, bend: -.3 },
+    { t0: 18.3, t1: 23.6, key: "pending", label: "won't send until approved", at: [1250, 190], seed: 41 },
+  ],
+  captions: [
+    [.4, 8, "Every message is written for a café and <b>checked by WhatsApp</b> before it can go out."],
+    [8.5, 16.6, "From the second visit, reminders are timed to the person — the day-3 message isn't used for regulars."],
+    [17, 23.6, "Owners can write their own — a monsoon offer, a new brunch menu, Diwali sweets."],
+  ]
+});
+
+/* 09 — Campaigns */
+const camp = M.campaigns, CA = camp.rects;
+scene(25, { chapter: ["08", "Campaigns"], page: camp,
+  cam: [
+    { t: 0, focus: CA.pick, z: 1.4 },
+    { t: 11, focus: { x: CA.brunch.x, y: CA.brunch.y - 10, w: CA.brunch.w, h: CA.brunch.h + 20 }, z: 1.42 },
+  ],
+  notes: [
+    { t0: 1.2, t1: 5.4, key: "choices", label: "pick who, by habit", at: [700, 160], seed: 43, ring: true, pad: 6 },
+    { t0: 5.6, t1: 10.6, key: "held", label: "never messaged without a yes", at: [980, 830], seed: 45, pad: 6 },
+    { t0: 12.4, t1: 18.2, key: "liftArms", label: "some are deliberately NOT messaged", at: [1100, 250], seed: 47, bend: .3 },
+    { t0: 18.4, t1: 24.6, key: "verdict", label: "honest when data is thin", at: [1300, 800], seed: 49 },
+  ],
+  captions: [
+    [.4, 5.4, "Choose who gets a message by how they behave — Overdue, Long gone, First visit."],
+    [5.6, 10.6, "The count is live, and it tells you who is <b>left out</b> because they never agreed."],
+    [11, 18.2, "Did it work? A few customers are held back on purpose, so you can compare <b>messaged vs. not messaged</b>."],
+    [18.4, 24.6, "And when there's too little data to be sure, Custva <b>says so</b> instead of inventing a number."],
+  ]
+});
+
+/* 10 — Analytics */
+const an = M.analytics, AR = an.rects;
+scene(17, { chapter: ["09", "How the shop is doing"], page: an,
+  cam: [ { t: 0, focus: AR.kpis, z: 1.4 }, { t: 6, focus: AR.takings, z: 1.4 } ],
+  notes: [
+    { t0: 1.2, t1: 5.6, key: "kpiBack", label: "brought back, 30 days", at: [1180, 620], seed: 51 },
+    { t0: 7.4, t1: 16.6, key: "legend", label: "green = after a reminder", at: [1450, 262], seed: 53, bend: -.25, pad: 6 },
+  ],
+  captions: [
+    [.4, 5.6, `${D.retentionRate}% of customers came back at least once. <b>${inr(D.last30Days.custvaInfluencedRevenue)}</b> came from visits after a reminder.`],
+    [6, 11.4, "Every day's takings, split three ways: first visits, regulars on their own, and visits after a reminder."],
+    [11.6, 16.6, "Regulars who were due back anyway are <b>never counted as green</b>."],
+  ]
+});
+
+/* 11 — Billing */
+const bill = M.billing, BR = bill.rects;
+scene(17, { chapter: ["10", "Money returned"], page: bill,
+  cam: [ { t: 0, focus: { x: 240, y: 70, w: 1180, h: 480, top: 64 }, z: 1.4 } ],
+  notes: [
+    { t0: 1.4, t1: 7.4, key: "totals", label: "what Custva is paid", at: [1360, 300], seed: 55, pad: 6 },
+    { t0: 7.8, t1: 16.6, key: "because", label: "which message earned it", at: [1260, 760], seed: 57, bend: -.3 },
+  ],
+  captions: [
+    [.4, 7.4, "Custva is paid only on visits that followed its own reminder — a small share of what those customers spent."],
+    [7.8, 16.6, "Every rupee is itemised: who came back, what they spent, and <b>which message</b> brought them."],
+  ]
+});
+
+/* 12 — Close */
+scene(15, { chapter: null, card(t, el) {
+  const out = fade(t, 0, 15, .6);
+  const items = [
+    [inr(D.last30Days.custvaInfluencedRevenue), `from ${D.last30Days.influencedVisits} visits after a reminder, last 30 days`],
+    [String(D.overdue.count), "regulars flagged as overdue today, each by their own habit"],
+    [inr(pending.amount || 0), `commission so far this month, at 5%`],
+  ];
+  el.innerHTML = `
+    <div style="position:absolute;left:180px;top:170px;right:180px;opacity:${out}">
+      <div class="mono" style="font-size:21px;letter-spacing:.14em;color:#8a6a3a;margin-bottom:22px;opacity:${easeOut(t)}">IN THIS DEMO CAFÉ</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:40px">
+        ${items.map(([big, small], i) => { const a = easeOut((t - .5 - i * .5) / .8); return `
+          <div style="opacity:${a};transform:translateY(${(1-a)*16}px);border-top:2px solid #cdb88f;padding-top:22px">
+            <div class="card-title" style="font-size:84px">${big}</div>
+            <div style="font-size:28px;color:#5a4a33;line-height:1.35;margin-top:10px">${small}</div>
+          </div>`; }).join("")}
+      </div>
+      <div class="card-title" style="font-size:66px;margin-top:92px;opacity:${easeOut((t - 3.2) / 1)}">Staff type a phone number.<br>Custva does the rest.</div>
+      <div style="font-size:22px;color:#7a6a4a;margin-top:44px;max-width:1300px;line-height:1.45;opacity:${easeOut((t - 5) / 1)}">All data here is synthetic: 120 days of a Chennai café simulated through Custva's own rules. Real results need real pilots.</div>
+    </div>`;
+}});
+
+const TOTAL = T;
+
+/* ── explainer drawing ─────────────────────────────────────────────────── */
+function explainer(t, fx, el) {
+  const out = fade(t, 0, 44, .5);
+  const X0 = 560, X1 = 1760;
+  el.innerHTML = `
+    <div style="position:absolute;left:140px;top:150px;opacity:${out * easeOut(t / .8)}">
+      <div class="card-title" style="font-size:54px">Who gets a WhatsApp, and when</div>
+    </div>`;
+  const g = svg("g", { opacity: out }, fx);
+  const lane = (y, title, sub, days, k) => {
+    const lbl = document.createElement("div");
+    lbl.style.cssText = `position:absolute;left:140px;top:${y - 34}px;opacity:${out * easeOut(k * 2)}`;
+    lbl.innerHTML = `<div style="font-size:30px;font-weight:700;color:#011244">${title}</div><div style="font-size:22px;color:#6a5a3a;margin-top:2px">${sub}</div>`;
+    el.appendChild(lbl);
+    stroke(g, wobble(bez([X0, y], [X0 + 400, y + 1], [X1 - 400, y - 1], [X1, y], 40), y, .8), ease(k), { width: 3, color: "#8f7a55", halo: false });
+    const sx = (dd) => X0 + (dd / days) * (X1 - X0);
+    return sx;
+  };
+  const dot = (x, y, k, color, r = 13) => { if (k <= 0) return; svg("circle", { cx: x, cy: y, r: r * easeOut(k), fill: color, stroke: "#fffaf0", "stroke-width": 3 }, g); };
+  const text = (x, y, s, k, opts = {}) => {
+    if (k <= 0) return;
+    const e = svg("text", { x, y, "text-anchor": opts.anchor || "middle", "font-family": opts.hand ? "Caveat" : "Instrument Sans",
+      "font-size": opts.size || 21, "font-weight": opts.weight || 600, fill: opts.color || "#3a3226", opacity: easeOut(k) }, g);
+    e.textContent = s;
+  };
+  const cup = (x, y, k, color = "#011244") => { if (k <= 0) return;
+    const s = easeOut(k);
+    svg("rect", { x: x - 11 * s, y: y - 30 - 12 * s, width: 22 * s, height: 24 * s, rx: 4, fill: color }, g);
+    svg("rect", { x: x - 17 * s, y: y - 18 + 2, width: 34 * s, height: 5, rx: 2.5, fill: color }, g);
+  };
+  const strike = (x, y, k) => { if (k <= 0) return; stroke(g, [[x - 16, y - 16], [x + 16, y + 16]], ease(k), { width: 4 }); stroke(g, [[x + 16, y - 16], [x - 16, y + 16]], ease(k - .3), { width: 4 }); };
+  const GREEN = "#2f8f5b";
+
+  /* Lane 1: new customer, fixed grid */
+  const y1 = 300, k1 = clamp((t - .6) / 1.2, 0, 1);
+  const s1 = lane(y1, "New customer", "no habit yet", 16, k1);
+  cup(s1(0), y1, clamp((t - 1) / .5, 0, 1));
+  text(s1(0), y1 + 44, "visit", clamp((t - 1.2) / .5, 0, 1), { size: 19, color: "#6a5a3a", weight: 500 });
+  [[0.3, "thank-you"], [3, "day 3"], [7, "day 7"], [14, "day 14 · last try"]].forEach(([dd, l], i) => {
+    const k = clamp((t - 2 - i * .9) / .5, 0, 1);
+    dot(s1(dd), y1, k, GREEN);
+    text(s1(dd) + (dd < 1 ? 26 : 0), y1 - 26, l, k, { anchor: dd < 1 ? "start" : "middle" });
+  });
+  /* comes back on day 5: pending 7 and 14 cancelled */
+  const kb = clamp((t - 7.9) / .6, 0, 1);
+  cup(s1(5), y1, kb, "#011244");
+  text(s1(5), y1 + 44, "comes back", kb, { size: 19, color: "#011244", weight: 700 });
+  strike(s1(7), y1, clamp((t - 8.9) / .5, 0, 1));
+  strike(s1(14), y1, clamp((t - 9.5) / .5, 0, 1));
+  text(s1(10.5), y1 + 46, "cancelled — nothing left to send", clamp((t - 10.2) / .6, 0, 1), { hand: true, size: 34, color: "#d9542c", weight: 700 });
+
+  /* Lane 2: weekly regular, on time */
+  const y2 = 500, k2 = clamp((t - 13.8) / 1.2, 0, 1);
+  const s2 = lane(y2, "Weekly regular", "comes every ~7 days", 20, k2);
+  cup(s2(0), y2, clamp((t - 14.6) / .5, 0, 1));
+  dot(s2(0.35), y2, clamp((t - 15.2) / .5, 0, 1), GREEN, 10);
+  text(s2(0.35) + 22, y2 - 22, "thank-you", clamp((t - 15.2) / .5, 0, 1), { anchor: "start" });
+  const kExp = clamp((t - 16.6) / .6, 0, 1);
+  if (kExp > 0) { svg("line", { x1: s2(7), y1: y2 - 44, x2: s2(7), y2: y2 + 30, stroke: "#8f7a55", "stroke-width": 2, "stroke-dasharray": "5 6", opacity: kExp }, g); }
+  text(s2(7), y2 - 54, "usually back", kExp, { size: 19, weight: 500, color: "#6a5a3a" });
+  [[8.75, "reminder if late"], [17.5, "second, if still away"]].forEach(([dd, l], i) => {
+    const k = clamp((t - 18 - i * .8) / .5, 0, 1);
+    if (k > 0) svg("circle", { cx: s2(dd), cy: y2, r: 12, fill: "none", stroke: GREEN, "stroke-width": 3, "stroke-dasharray": "4 4", opacity: easeOut(k) }, g);
+    text(s2(dd), y2 - 26, l, k, { color: "#3a5a46" });
+  });
+  const kOn = clamp((t - 22.2) / .6, 0, 1);
+  cup(s2(6.8), y2, kOn);
+  text(s2(6.8), y2 + 44, "on time", kOn, { size: 19, color: "#011244", weight: 700 });
+  strike(s2(8.75), y2, clamp((t - 23.2) / .5, 0, 1));
+  strike(s2(17.5), y2, clamp((t - 23.8) / .5, 0, 1));
+  text(s2(13.2), y2 + 46, "on time → no reminder at all", clamp((t - 24.4) / .6, 0, 1), { hand: true, size: 34, color: "#d9542c", weight: 700 });
+
+  /* Lane 3: monthly family, late */
+  const y3 = 700, k3 = clamp((t - 28.8) / 1.2, 0, 1);
+  const s3 = lane(y3, "Monthly family", "comes every ~30 days", 80, k3);
+  cup(s3(0), y3, clamp((t - 29.6) / .5, 0, 1));
+  const kE3 = clamp((t - 30.4) / .6, 0, 1);
+  if (kE3 > 0) svg("line", { x1: s3(30), y1: y3 - 44, x2: s3(30), y2: y3 + 30, stroke: "#8f7a55", "stroke-width": 2, "stroke-dasharray": "5 6", opacity: kE3 }, g);
+  text(s3(30), y3 - 54, "usually back ~day 30", kE3, { size: 19, weight: 500, color: "#6a5a3a" });
+  const kR = clamp((t - 31.4) / .5, 0, 1);
+  dot(s3(37.5), y3, kR, GREEN);
+  text(s3(37.5) + 12, y3 - 26, "reminder ~day 37", kR, { anchor: "end" });
+  const kBack = clamp((t - 33) / .6, 0, 1);
+  cup(s3(46), y3, kBack, GREEN);
+  text(s3(46) - 20, y3 + 46, "comes back → brought back by Custva", kBack, { hand: true, size: 34, color: "#2f8f5b", weight: 700, anchor: "start" });
+  text(s3(3), y3 - 26, "no “we miss you” in week one", clamp((t - 34.4) / .6, 0, 1), { hand: true, size: 30, color: "#d9542c", weight: 700, anchor: "start" });
+
+  /* Guardrails */
+  const rails = ["Max 4 WhatsApps a week per person", "Only between 10 am and 8 pm", "Only people who said yes", "Reply STOP and it stops"];
+  const row = document.createElement("div");
+  row.style.cssText = `position:absolute;left:140px;right:140px;top:792px;display:flex;gap:16px;flex-wrap:wrap;opacity:${out}`;
+  row.innerHTML = rails.map((r, i) => { const a = easeOut((t - 37.2 - i * .45) / .6); return `
+    <div style="opacity:${a};transform:translateY(${(1-a)*10}px);padding:12px 20px;border-radius:999px;background:#011244;color:#fbf7ee;font-size:24px;font-weight:600">${r}</div>`; }).join("");
+  el.appendChild(row);
+}
+
+/* ── render ────────────────────────────────────────────────────────────── */
+function camAt(sc, t) {
+  const page = sc.page || { w: 1440, h: 900 };
+  const keys = sc.cam.map((c) => ({ t: c.t, s: shotFor(page, c.focus, c.z) }));
+  let s = keys[0].s;
+  for (let i = 1; i < keys.length; i++) {
+    const a = keys[i - 1], b = keys[i];
+    /* A key is the START of a 1.3s move. Notes are timed to sit entirely
+       inside the holds between moves, so an arrow never chases a panning page. */
+    if (t >= b.t + MOVE) { s = b.s; continue; }
+    if (t > b.t) { const k = ease((t - b.t) / MOVE); s = { cx: lerp(a.s.cx, b.s.cx, k), cy: lerp(a.s.cy, b.s.cy, k), z: lerp(a.s.z, b.s.z, k) }; }
+    break;
+  }
+  /* A slow push-in during holds, so a still never looks frozen. */
+  const drift = 1 + 0.012 * Math.sin(Math.min(t, sc.dur) / sc.dur * Math.PI);
+  return clampShot({ cx: s.cx, cy: s.cy, z: s.z * drift }, page.w, page.h);
+}
+function frameIndex(sc, t) { let i = 0; sc.times.forEach((tt, j) => { if (t >= tt) i = j; }); return i; }
+
+function renderAt(time) {
+  const fx = $("fx"), tagsEl = $("tags"), card = $("card");
+  fx.innerHTML = ""; tagsEl.innerHTML = ""; card.innerHTML = "";
+  for (const im of Object.values(imgs)) im.style.display = "none";
+  const sc = SC.find((s) => time >= s.start && time < s.start + s.dur) || SC[SC.length - 1];
+  const t = time - sc.start;
+  const win = $("window"), cap = $("caption"), chap = $("chapter");
+  $("grain").style.transform = `translate(${(Math.floor(time * 12) * 37) % 40 - 20}px, ${(Math.floor(time * 12) * 53) % 40 - 20}px)`;
+  $("cursor").style.display = "none"; $("ripple").style.display = "none";
+
+  const isScreen = !!(sc.page || sc.seq);
+  const inK = easeOut(t / .55), outK = clamp((sc.dur - t) / .45, 0, 1);
+  win.style.display = isScreen ? "block" : "none";
+  win.style.opacity = Math.min(inK, outK);
+  win.style.transform = `translateY(${(1 - inK) * 26}px) scale(${1 - (1 - outK) * .015})`;
+
+  if (sc.chapter) {
+    chap.style.display = "flex";
+    chap.firstElementChild.textContent = sc.chapter[0];
+    chap.lastElementChild.textContent = sc.chapter[1];
+    chap.style.opacity = Math.min(easeOut((t - .2) / .5), outK);
+  } else chap.style.display = "none";
+  $("demo").style.opacity = sc.chapter ? Math.min(easeOut((t - .2) / .5), outK) : 0;
+
+  let rects = null, shot = null;
+  if (isScreen) {
+    const page = sc.page || { w: 1440, h: 900 };
+    shot = camAt(sc, t);
+    let file = sc.page ? sc.page.file : null;
+    if (sc.seq) { const f = sc.seq.frames[frameIndex(sc, t)]; file = f.file; rects = f.rects; }
+    else rects = sc.page.rects;
+    const im = imgFor(file);
+    im.style.display = "block";
+    im.style.width = (page.w * shot.z) + "px";
+    im.style.transform = `translate(${WIN.w / 2 - shot.cx * shot.z}px, ${WIN.h / 2 - shot.cy * shot.z}px)`;
+
+    for (const a of sc.notes || []) {
+      if (t < a.t0 || t > a.t1) continue;
+      const src = a.frame != null ? sc.seq.frames[a.frame].rects : rects;
+      const r = src[a.key];
+      if (!r) continue;
+      const sr = toStage(shot, r);
+      const cxs = sr.x + sr.w / 2, cys = sr.y + sr.h / 2;
+      if (cxs < WIN.x || cxs > WIN.x + WIN.w || cys < WIN.y || cys > WIN.y + WIN.h) continue;
+      note(fx, tagsEl, t, a, sr);
+    }
+
+    /* cursor */
+    if (sc.cursor) {
+      const cs = sc.cursor;
+      let pos = null, clickAt = null;
+      const posOf = (c) => { const src = sc.seq ? sc.seq.frames[frameIndex(sc, c.t)].rects : rects; const r = toStage(shot, src[c.key]); return [r.x + r.w * c.dx, r.y + r.h * c.dy]; };
+      if (t >= cs[0].t - .8) {
+        pos = posOf(cs[0]);
+        const start = [pos[0] + 160, pos[1] + 120];
+        if (t < cs[0].t) { const k = ease((t - cs[0].t + .8) / .8); pos = [lerp(start[0], pos[0], k), lerp(start[1], pos[1], k)]; }
+        for (let i = 1; i < cs.length; i++) {
+          const a = cs[i - 1], b = cs[i];
+          if (t < a.t) break;
+          const pa = posOf(a), pb = posOf(b);
+          if (t >= b.t) { pos = pb; continue; }
+          const k = ease((t - a.t) / Math.max(.3, b.t - a.t));
+          pos = [lerp(pa[0], pb[0], k), lerp(pa[1], pb[1], k) - Math.sin(k * Math.PI) * 30];
+          break;
+        }
+        for (const c of cs) if (c.click && t >= c.t && t < c.t + .5) clickAt = { p: posOf(c), k: (t - c.t) / .5 };
+      }
+      if (pos && t < sc.dur - .4) {
+        const cur = $("cursor");
+        cur.style.display = "block";
+        cur.style.transform = `translate(${pos[0] - 6}px, ${pos[1] - 3}px) scale(${clickAt && clickAt.k < .3 ? .88 : 1})`;
+        if (clickAt) {
+          const rp = $("ripple"), s = 1 + clickAt.k * 2.4;
+          rp.style.display = "block";
+          rp.style.left = (clickAt.p[0] - 10) + "px"; rp.style.top = (clickAt.p[1] - 10) + "px";
+          rp.style.transform = `scale(${s})`; rp.style.opacity = 1 - clickAt.k;
+        }
+      }
+    }
+  }
+
+  if (sc.card) sc.card(t, card, fx);
+  if (sc.explainer) explainer(t, fx, card);
+
+  /* captions */
+  const c = (sc.captions || []).find(([a, b]) => t >= a && t <= b);
+  if (c) {
+    cap.style.display = "block";
+    cap.innerHTML = c[2];
+    const k = fade(t, c[0], c[1], .25);
+    cap.style.opacity = k;
+    cap.style.transform = `translateX(-50%) translateY(${(1 - k) * 8}px)`;
+  } else cap.style.display = "none";
+}
+
+window.TOTAL = TOTAL;
+window.renderAt = renderAt;
+window.ready = preload();
+</script>
+</body>
+</html>

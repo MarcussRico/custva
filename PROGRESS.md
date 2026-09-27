@@ -6,7 +6,7 @@ session; do not let it drift.
 
 | | |
 |---|---|
-| **Last updated** | 2026-09-11 |
+| **Last updated** | 2026-09-27 |
 | **Current phase** | **All phases complete (0, A, B, C, M, D, E).** The SRS is built, plus holdout measurement. Surfacing it in the product: customers list and dashboard done, 6 screens to go (§4b) |
 | **Next action** | Get Meta credentials, submit the templates from the admin screen (§4h), then verify end to end with `scripts/seed-pilot-test.mjs`. Consent is already strict (§4c) |
 | **Defects** | All 13 from the 8 Sep review are closed (§4c, §4e, §4f) |
@@ -1319,6 +1319,54 @@ phone. Most small shops run their business on that number, so "just give us your
 number" in practice means "a second number you do not already use". That is a
 product decision — whether Custva supplies the SIM or the onboarding script asks
 for one — not an engineering one.
+
+---
+
+## 4k. A realistic café, and what it exposed — 2026-09-27
+
+`apps/api/scripts/seed-cafe-simulation.ts` walks a 413-customer Chennai café
+through 120 days using the product's own shared rules (segmentation, rhythm
+nudges, attribution, holdout). Only customer *behaviour* is invented, and it is
+listed in `BEHAVIOUR` at the top of the file. `SIM_DRY_RUN=1` prints the
+numbers without writing. Mobiles are stored `+91…` like the API does —
+`seed-demo-shop.mjs` stores bare 10 digits, so a visit recorded for one of its
+customers creates a duplicate.
+
+Eight hand-placed customers had hidden all of these:
+
+| Found | Fix |
+|---|---|
+| Rhythm nudges land at any hour (one was due at 03:26) | `intoSendingHours` in shared, 10:00–20:00 IST on a fixed offset, applied in `enrollAfterVisit`; 5 tests incl. a UTC server |
+| Editing a template's words kept `meta_status`, so the screen showed new copy while Meta kept sending the approved old copy | wording change clears `meta_status` / `meta_submitted_at` / `meta_rejected_reason`, as the image path already did |
+| "Overdue" = anyone past `expected_revisit_at`, so one-time visitors from months ago dominated (223 of 413) | headline + panel = `at_risk`/`dormant`; new `sortBy=attention` (at-risk by lateness ratio, then most recently lost) |
+| `contactable` read `whatsapp_opt_in`, TRUE for unknown consent | reads `consent_state = 'granted'` |
+| "N days late" beside an "On schedule" pill (Loyal runs to 1.25×) | `app/lib/customer-status.ts`, one wording for every screen; "Due now" pill; `explainSegment` says "due about now" and does not claim a habit below 3 visits |
+| Daily rollups written to `CURRENT_DATE`, so a backdated visit counted today | both rollups take the visit's date |
+| Custom template "Edit copy" silently did nothing | `editing` looked only in lifecycle templates |
+| Billing copy said only overdue customers are charged | first-time returns are charged too (FR-A6); copy says so |
+
+Plus a UI pass for counter staff: plain labels, customer page rebuilt around
+"status in a sentence / next visit / next WhatsApp and when / which visits
+Custva earned", counter confirmation says what happens next, analytics
+rebuilt (no dual axis, dates readable, takings split three ways; palette run
+through the dataviz validator).
+
+### Not fixed — decisions, see the partner brief
+
+- **Attribution over-credits ~4×.** Across five simulation runs the 7-day
+  last-touch rule credited 510–575 visits; only 23–27% would not have happened
+  without a message. Causes: first-timers' normal second visit falls inside
+  the day-3/7 window, and the at-risk nudge fires exactly at the at-risk
+  boundary so nearly every late return is inside the window. Model-dependent
+  size, structural mechanism. Billing on holdout lift is the defensible fix.
+- `day_0` thank-you goes after **every** visit (tier 4 repeats forever): a
+  daily regular gets 3–4 a week and consumes the shared 4/7-day cap.
+- Seeded day_7/day_14 copy names durations ("a week", "two weeks") but now
+  fires at 1.25×/2.5× the customer's gap.
+- `/campaigns/:id/lift` uses `campaigns.updated_at` as send time; it moves.
+- Campaign "Send now" has no sending-hours guard.
+
+Partner brief (plan, phases, decisions): https://claude.ai/code/artifact/9d0ad1f1-388a-48f4-b85e-47ab678274d8
 
 ---
 
