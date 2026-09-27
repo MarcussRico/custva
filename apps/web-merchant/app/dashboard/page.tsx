@@ -67,7 +67,7 @@ export default async function MerchantDashboardPage() {
     const { data, meta } = await merchantApiWithMeta<
       { items: OverdueCustomer[] },
       { total?: number }
-    >("/customers?overdueOnly=true&sortBy=overdue&limit=6");
+    >("/customers?segments=at_risk,dormant&sortBy=attention&limit=6");
     overdueCustomers = data.items;
     overdueTotal = meta.total ?? data.items.length;
   } catch {

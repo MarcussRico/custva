@@ -14,7 +14,7 @@ const NAV: Array<{ key: NavKey; href: string; label: string }> = [
 
   { key: "customers", href: "/customers", label: "Customers" },
 
-  { key: "templates", href: "/templates", label: "Templates" },
+  { key: "templates", href: "/templates", label: "Messages" },
 
   { key: "campaigns", href: "/campaigns", label: "Campaigns" },
 

@@ -13,6 +13,55 @@ const CONSENT_NOTICE =
   "Customer agreed to receive offers and reminders from this shop on WhatsApp.";
 const CONSENT_NOTICE_VERSION = "counter-v1";
 
+interface SavedVisit {
+  name: string;
+  segment: string | null;
+  expectedGapDays: string | number | null;
+  expectedRevisitAt: string | null;
+  consentState: "granted" | "withdrawn" | "unknown" | null;
+  totalVisits: number;
+  visit?: { isFirstVisit: boolean; returnType: string };
+}
+
+/**
+ * The confirmation a counter actually needs: saved, and what happens next.
+ * Staff should not have to open another screen to know whether this person
+ * will get a WhatsApp or when they are expected back.
+ */
+function describeSaved(saved?: SavedVisit): { title: string; detail: string } {
+  if (!saved) return { title: "Saved.", detail: "" };
+  const first = saved.name.split(" ")[0];
+  const when = saved.expectedRevisitAt
+    ? new Date(saved.expectedRevisitAt).toLocaleDateString("en-IN", {
+        weekday: "short",
+        day: "numeric",
+        month: "short"
+      })
+    : null;
+  const messaged =
+    saved.consentState === "granted"
+      ? "A thank-you WhatsApp is scheduled for a few minutes from now."
+      : saved.consentState === "withdrawn"
+        ? "They asked not to be messaged, so no WhatsApp will go out."
+        : "No WhatsApp will go out until they agree to messages.";
+
+  if (saved.visit?.isFirstVisit) {
+    return {
+      title: `${first} added — first visit.`,
+      detail: messaged
+    };
+  }
+  const back =
+    saved.visit?.returnType === "custva_influenced"
+      ? `${first} came back after a Custva reminder. `
+      : "";
+  const next = when ? `Next visit expected around ${when}. ` : "";
+  return {
+    title: `Visit saved for ${first} — visit ${saved.totalVisits}.`,
+    detail: `${back}${next}${messaged}`
+  };
+}
+
 export function CustomerQuickEntryForm({
   onPhoneDigitsChange
 }: {
@@ -32,7 +81,7 @@ export function CustomerQuickEntryForm({
   const [consentGiven, setConsentGiven] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [success, setSuccess] = useState<{ title: string; detail: string } | null>(null);
 
   const phoneDigits = phone.replace(/\D/g, "");
   const isReturning = Boolean(selected);
@@ -102,7 +151,7 @@ export function CustomerQuickEntryForm({
     e.preventDefault();
     setLoading(true);
     setError("");
-    setSuccess("");
+    setSuccess(null);
     try {
       const payload: Record<string, unknown> = {
         name: name.trim(),
@@ -129,12 +178,16 @@ export function CustomerQuickEntryForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
-      const data = (await res.json()) as { success: boolean; message?: string };
+      const data = (await res.json()) as {
+        success: boolean;
+        message?: string;
+        data?: SavedVisit;
+      };
       if (!res.ok || !data.success) {
-        setError(data.message ?? "Failed to save customer.");
+        setError(data.message ?? "Could not save. Check the phone number and bill amount.");
         return;
       }
-      setSuccess(isReturning ? "Visit recorded successfully." : "Customer added successfully.");
+      setSuccess(describeSaved(data.data));
       clearForm();
       router.refresh();
     } finally {
@@ -144,10 +197,13 @@ export function CustomerQuickEntryForm({
 
   return (
     <section className="merchant-panel">
-      <h2 style={{ paddingBottom: "16px" }}>Customer Entry</h2>
+      <h2>Add a visit</h2>
+      <p className="merchant-muted merchant-entry-lead">
+        Type the phone number first. If they have been here before, their name fills in by itself.
+      </p>
       <form className="merchant-quick-entry" onSubmit={submit} autoComplete="off">
         <label className="merchant-quick-phone">
-          Phone
+          Phone number
           <input
             name="custva-phone"
             inputMode="numeric"
@@ -177,7 +233,7 @@ export function CustomerQuickEntryForm({
             />
           </label>
           <label>
-            Billing amount (INR)
+            Bill amount (₹)
             <input
               name="custva-billing"
               type="number"
@@ -267,12 +323,17 @@ export function CustomerQuickEntryForm({
 
         <div className="merchant-form-actions">
           <button type="submit" className="merchant-btn merchant-btn--primary" disabled={loading}>
-            {isReturning ? "Record Visit" : "Add Customer"}
+            {isReturning ? "Save visit" : "Save new customer"}
           </button>
         </div>
       </form>
       {error && <p className="merchant-error">{error}</p>}
-      {success && <p className="merchant-success">{success}</p>}
+      {success && (
+        <div className="merchant-success merchant-entry-saved" role="status">
+          <strong>{success.title}</strong>
+          <span>{success.detail}</span>
+        </div>
+      )}
     </section>
   );
 }

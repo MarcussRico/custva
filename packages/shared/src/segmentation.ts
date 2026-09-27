@@ -137,16 +137,34 @@ export function explainSegment(input: {
 }): string {
   const gap = Math.round(input.expectedGapDays);
   const days = Math.round(input.daysSinceLastVisit);
+  /* With fewer than minVisitsForOwnGap visits the gap is the shop's typical
+     one, not this person's. "Usually" would be a claim about a habit nobody
+     has observed yet. */
+  const own = input.totalVisits >= SEGMENT_THRESHOLDS.minVisitsForOwnGap;
+  const usually = own
+    ? `Usually back within ${gap} days`
+    : `Most customers here come back within ${gap} days`;
 
   switch (input.segment) {
     case "first_time":
       return "Has been in once. Not enough history to know their rhythm yet.";
     case "loyal":
-      return `Comes in roughly every ${gap} days and it has been ${days} — they are on schedule.`;
+      /* Loyal runs to 1.25x the gap, so a regular can be a day or two past
+         their usual visit and still be Loyal. Saying "on schedule" about
+         someone who is past their day reads as a contradiction beside a
+         "1 day late" figure; "due about now" is what is actually true. */
+      if (days > gap) {
+        return own
+          ? `Comes in roughly every ${gap} days and it has been ${days} — due about now, not late yet.`
+          : `${usually}, and it has been ${days} — due about now, not late yet.`;
+      }
+      return own
+        ? `Comes in roughly every ${gap} days and it has been ${days} — they are on schedule.`
+        : `${usually}, and it has been ${days} — on track so far.`;
     case "at_risk":
-      return `Usually back within ${gap} days, but it has been ${days}. They have missed their normal visit.`;
+      return `${usually}, but it has been ${days}. They have missed their normal visit.`;
     case "dormant":
-      return `Usually back within ${gap} days. It has been ${days} — long enough that they may not return on their own.`;
+      return `${usually}. It has been ${days} — long enough that they may not return on their own.`;
   }
 }
 
@@ -218,4 +236,41 @@ export function rhythmNudgeOffsetsDays(expectedGapDays: number): number[] {
     gap * SEGMENT_THRESHOLDS.loyalMultiple,
     gap * SEGMENT_THRESHOLDS.atRiskMultiple,
   ];
+}
+
+/**
+ * When a customer may receive an automatic message.
+ *
+ * Rhythm nudges are 1.25x and 2.5x a customer's gap after the exact minute of
+ * their last visit, so they land at arbitrary hours — in the demo simulation a
+ * weekly regular's reminder was due at 03:26. A WhatsApp from a cafe at 3am is
+ * the fastest way to earn a block, and blocks are what lower the sending
+ * number's quality rating for every customer after.
+ *
+ * India has one time zone and no daylight saving, so the window is computed on
+ * a fixed +05:30 offset rather than the server's local zone, which on a cloud
+ * host is usually UTC.
+ */
+export const SENDING_HOURS = {
+  startHour: 10,
+  endHour: 20,
+  tzOffsetMinutes: 330,
+} as const;
+
+export function intoSendingHours(
+  when: Date,
+  hours: { startHour: number; endHour: number; tzOffsetMinutes: number } = SENDING_HOURS,
+): Date {
+  const offsetMs = hours.tzOffsetMinutes * 60_000;
+  const local = new Date(when.getTime() + offsetMs);
+  const hour = local.getUTCHours();
+  if (hour >= hours.startHour && hour < hours.endHour) return when;
+
+  /* Move to the start of the next window. The original minute is kept so a
+     batch of customers who visited at different times do not all land at
+     exactly 10:00 and go out as one burst. */
+  const target = new Date(local);
+  if (hour >= hours.endHour) target.setUTCDate(target.getUTCDate() + 1);
+  target.setUTCHours(hours.startHour, local.getUTCMinutes(), 0, 0);
+  return new Date(target.getTime() - offsetMs);
 }

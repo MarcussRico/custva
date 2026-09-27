@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { formatMobile } from "../lib/customer-status";
 
 /**
  * The commission ledger — FR-M5.
@@ -93,10 +94,9 @@ export function CommissionClient() {
           they are looking at before they look at the number. */}
       <section className="merchant-panel merchant-commission-basis">
         <p>
-          Custva charges only on visits where a message reached a customer who was overdue, and
-          they came back within {""}
-          <strong>7 days</strong>. Regulars who were coming back anyway are never charged for —
-          they are shielded automatically.
+          Custva charges only on visits that came within <strong>7 days</strong> of a Custva
+          WhatsApp, from a customer who was new, overdue or long gone at the time. Regulars who
+          were due back anyway are never charged for, even if a message reached them.
         </p>
         {data ? (
           <p className="merchant-muted">
@@ -171,7 +171,7 @@ export function CommissionClient() {
                     <Link href={`/customers/${r.customerId}`} className="merchant-link">
                       {r.customerName}
                     </Link>
-                    <small className="seg-gap">{r.mobile}</small>
+                    <small className="seg-gap">{formatMobile(r.mobile)}</small>
                   </td>
                   <td>{day(r.visitAt)}</td>
                   <td>{inr(r.influencedAmount)}</td>

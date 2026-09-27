@@ -1,6 +1,6 @@
 import type { PoolClient } from "pg";
 import { randomUUID } from "node:crypto";
-import { lifecycleBullJobId, rhythmNudgeOffsetsDays } from "@custva/shared";
+import { intoSendingHours, lifecycleBullJobId, rhythmNudgeOffsetsDays } from "@custva/shared";
 import { canMessage, type ConsentState } from "@custva/shared";
 import { getLifecycleDispatchQueue } from "./queue.js";
 
@@ -159,7 +159,10 @@ export async function enrollAfterVisit(
     ? buildRhythmPlan(input.visitAt, expectedGapDays!)
     : LIFECYCLE_DAYS.map((day) => ({ day, scheduledAt: scheduleAt(input.visitAt, day) }));
 
-  for (const { day, scheduledAt } of plan) {
+  for (const { day, scheduledAt: rawAt } of plan) {
+    /* Nothing goes out overnight. Rhythm offsets are fractional days from the
+       minute of the visit, so without this a reminder can fall at 3am. */
+    const scheduledAt = intoSendingHours(rawAt);
     const templateId = templateByDay.get(day);
     if (!templateId) continue;
 

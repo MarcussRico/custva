@@ -30,9 +30,8 @@ export function ConsentGap({
           recorded consent
         </strong>
         <p>
-          They were added before Custva started keeping consent records, so there is nothing
-          proving they agreed to WhatsApp messages. Tick the consent box next time they come in
-          and the gap closes itself.
+          Nobody has recorded that they said yes to WhatsApp messages, so Custva will not message
+          them. Next time they come in, ask them and tick the box — that is all it takes.
         </p>
       </div>
       <Link href="/customers?consent=unknown" className="merchant-link">

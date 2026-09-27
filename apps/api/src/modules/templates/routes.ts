@@ -128,6 +128,20 @@ templatesRouter.put("/:id", async (req, res) => {
   }
 
   const current = existing.rows[0];
+
+  /* Meta delivers the wording it approved, keyed by template name — not the
+     wording in this row. So an edit that left the approval in place would show
+     the merchant new copy while customers kept receiving the old copy, with
+     nothing on screen to say so. Any change to what the customer reads clears
+     Meta's status, exactly as replacing the header image already does, and the
+     template has to be approved again before it can send. */
+  const wordingChanged =
+    (body.body != null && body.body !== current.body) ||
+    (body.headerText != null && body.headerText !== (current.header_text ?? "")) ||
+    (body.footerText != null && body.footerText !== (current.footer_text ?? "")) ||
+    (body.buttons != null &&
+      JSON.stringify(body.buttons) !== JSON.stringify(current.buttons ?? []));
+
   const updated = await query<TemplateRow>(
     `UPDATE templates SET
        name = COALESCE($1, name),
@@ -138,6 +152,9 @@ templatesRouter.put("/:id", async (req, res) => {
        language_code = COALESCE($6, language_code),
        cta_link = COALESCE($7, cta_link),
        is_locally_modified = TRUE,
+       meta_status = CASE WHEN $9 THEN NULL ELSE meta_status END,
+       meta_submitted_at = CASE WHEN $9 THEN NULL ELSE meta_submitted_at END,
+       meta_rejected_reason = CASE WHEN $9 THEN NULL ELSE meta_rejected_reason END,
        updated_at = NOW()
      WHERE id = $8
      RETURNING *`,
@@ -149,7 +166,8 @@ templatesRouter.put("/:id", async (req, res) => {
       body.buttons ? JSON.stringify(body.buttons) : null,
       body.languageCode ?? null,
       body.ctaLink ?? null,
-      req.params.id
+      req.params.id,
+      wordingChanged
     ]
   );
 

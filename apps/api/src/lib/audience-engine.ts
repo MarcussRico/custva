@@ -246,7 +246,7 @@ export const customerListFilterSchema = z.object({
   overdueOnly: z.coerce.boolean().optional(),
   consent: z.enum(["granted", "withdrawn", "unknown"]).optional(),
   sortBy: z
-    .enum(["name", "totalSpend", "totalVisits", "lastVisit", "createdAt", "updatedAt", "overdue"])
+    .enum(["name", "totalSpend", "totalVisits", "lastVisit", "createdAt", "updatedAt", "overdue", "attention"])
     .default("updatedAt"),
   cursor: z.string().optional()
 });
@@ -389,7 +389,18 @@ export function buildCustomerListQuery(
     /* Most overdue first — the earliest expected revisit date is the customer
        who has been missing longest relative to their own rhythm. Customers
        with no rhythm yet sort last rather than jumping the queue. */
-    overdue: "c.expected_revisit_at ASC NULLS LAST"
+    overdue: "c.expected_revisit_at ASC NULLS LAST",
+    /* Who to act on first. Overdue before Long gone, because someone who has
+       just missed their habit is the most likely to come back when asked.
+       Within Overdue, whoever is closest to tipping into Long gone (their
+       lateness relative to their own gap); within Long gone, the most recently
+       lost. Sorting on expected_revisit_at alone put one-time visitors from
+       four months ago at the top of a busy cafe's list. */
+    attention: `CASE c.segment WHEN 'at_risk' THEN 0 WHEN 'dormant' THEN 1 ELSE 2 END,
+      CASE WHEN c.segment = 'at_risk'
+           THEN EXTRACT(EPOCH FROM (NOW() - c.last_visit)) / 86400.0 / NULLIF(c.expected_gap_days, 0)
+      END DESC NULLS LAST,
+      c.last_visit DESC NULLS LAST`
   };
   const orderBy = sortMap[filters.sortBy] ?? sortMap.updatedAt;
 

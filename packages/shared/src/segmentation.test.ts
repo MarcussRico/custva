@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 import {
   SEGMENT_THRESHOLDS,
   classifySegment,
+  explainSegment,
+  intoSendingHours,
   computeExpectedGapDays,
   computeSegmentation,
   median,
@@ -204,5 +206,81 @@ describe("rhythmNudgeOffsetsDays — the missed-rhythm trigger", () => {
     const [first] = rhythmNudgeOffsetsDays(30);
     assert.ok(first > 14, "a monthly customer should not be chased inside a fortnight");
     assert.equal(first, 37.5);
+  });
+});
+
+describe("explainSegment — the sentence a counter reads", () => {
+  it("a regular past their usual day but inside the Loyal band is 'due', not 'on schedule'", () => {
+    /* 8 days on a 7-day habit is still Loyal (under 1.25x). Printing "on
+       schedule" next to "1 day late" was a contradiction on the dashboard. */
+    const line = explainSegment({
+      segment: "loyal",
+      totalVisits: 6,
+      daysSinceLastVisit: 8,
+      expectedGapDays: 7,
+    });
+    assert.match(line, /due about now/);
+    assert.doesNotMatch(line, /on schedule/);
+  });
+
+  it("a regular inside their usual gap is on schedule", () => {
+    const line = explainSegment({
+      segment: "loyal",
+      totalVisits: 6,
+      daysSinceLastVisit: 5,
+      expectedGapDays: 7,
+    });
+    assert.match(line, /on schedule/);
+  });
+
+  it("does not claim a personal habit from thin history", () => {
+    /* Two visits: the gap is the shop's median, not theirs. */
+    const line = explainSegment({
+      segment: "at_risk",
+      totalVisits: 2,
+      daysSinceLastVisit: 12,
+      expectedGapDays: 7,
+    });
+    assert.match(line, /Most customers here/);
+    assert.doesNotMatch(line, /^Usually/);
+  });
+});
+
+describe("intoSendingHours — no reminders at 3am", () => {
+  /* Instants written in IST (+05:30) so the test reads the way a shop does. */
+  const ist = (s: string) => new Date(`${s}+05:30`);
+
+  it("leaves a message inside the window alone", () => {
+    const t = ist("2026-09-25T15:40:00");
+    assert.equal(intoSendingHours(t).getTime(), t.getTime());
+  });
+
+  it("moves a small-hours message to that morning", () => {
+    assert.equal(
+      intoSendingHours(ist("2026-09-25T03:26:15")).getTime(),
+      ist("2026-09-25T10:26:00").getTime(),
+    );
+  });
+
+  it("moves a late-evening message to the next morning", () => {
+    assert.equal(
+      intoSendingHours(ist("2026-09-25T21:05:00")).getTime(),
+      ist("2026-09-26T10:05:00").getTime(),
+    );
+  });
+
+  it("treats the end hour as closed", () => {
+    assert.equal(
+      intoSendingHours(ist("2026-09-25T20:00:00")).getTime(),
+      ist("2026-09-26T10:00:00").getTime(),
+    );
+  });
+
+  it("does not depend on the server's time zone", () => {
+    /* 22:00 UTC is 03:30 IST the next day — must go to 10:30 IST that day. */
+    assert.equal(
+      intoSendingHours(new Date("2026-09-24T22:00:00Z")).getTime(),
+      ist("2026-09-25T10:30:00").getTime(),
+    );
   });
 });

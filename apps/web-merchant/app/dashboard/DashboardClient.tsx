@@ -6,6 +6,7 @@ import { DashboardHero, DashboardToday, type DashboardKpis } from "./DashboardHe
 import { CustomerQuickEntryForm } from "./CustomerQuickEntryForm";
 import { OverdueNow, type OverdueCustomer } from "./OverdueNow";
 import { ConsentGap } from "./ConsentGap";
+import { formatMobile } from "../lib/customer-status";
 
 export interface RecentCustomer {
   id: string;
@@ -70,7 +71,7 @@ export function DashboardClient({
                   <td>
                     <Link href={`/customers/${c.id}`}>{c.name}</Link>
                   </td>
-                  <td>{c.mobile}</td>
+                  <td>{formatMobile(c.mobile)}</td>
                   <td>{c.pincode ?? "—"}</td>
                   <td>₹{Number(c.totalSpend).toLocaleString("en-IN")}</td>
                   <td>{new Date(c.createdAt).toLocaleDateString("en-IN")}</td>

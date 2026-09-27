@@ -291,6 +291,24 @@ ul { list-style: none; }
   font-size: 0.85rem;
 }
 
+.merchant-entry-lead {
+  margin: 4px 0 16px;
+}
+
+/* The counter confirmation: two lines, the fact and what happens next. */
+.merchant-entry-saved {
+  display: grid;
+  gap: 2px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #e9f5ef;
+  border: 1px solid #cfe8db;
+  font-size: 0.92rem;
+}
+.merchant-entry-saved strong { color: #0b5c3a; }
+.merchant-entry-saved span { color: #2c3757; }
+
 .merchant-muted {
   color: #667085;
   font-size: 0.88rem;
@@ -1346,6 +1364,9 @@ ul { list-style: none; }
 .seg-loyal      { color: #0b7d4d; background: #e3f3ec; }
 .seg-at_risk    { color: #8a6600; background: #fdf3d8; }
 .seg-dormant    { color: #99332a; background: #fbe6e3; }
+/* A regular a day or two past their usual visit: not late by their own
+   standard yet, but no longer "on schedule" either. */
+.seg-due-now    { color: #5c4a12; background: #f3ecd9; }
 
 .seg-due { color: #99332a; font-weight: 600; }
 .seg-gap {
@@ -1963,4 +1984,113 @@ ul { list-style: none; }
   font-size: 0.85rem;
   line-height: 1.6;
   max-width: 66ch;
+}
+
+
+/* ── Customer page ───────────────────────────────────────────────────────── */
+.customer-summary {
+  display: grid;
+  gap: 18px;
+}
+.customer-summary-status {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.customer-summary-status p {
+  margin: 0;
+  font-size: 1.02rem;
+  color: var(--gray-900);
+  max-width: 60ch;
+}
+.customer-summary-facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+.customer-summary-facts div {
+  padding: 12px 14px;
+  border: 1px solid var(--gray-200);
+  border-radius: 10px;
+  background: var(--gray-50);
+}
+.customer-summary-facts dt {
+  font-size: 0.78rem;
+  color: var(--gray-500);
+  margin-bottom: 4px;
+}
+.customer-summary-facts dd {
+  margin: 0;
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--gray-900);
+  font-variant-numeric: tabular-nums;
+}
+.customer-summary-facts dd small {
+  display: block;
+  font-weight: 400;
+  font-size: 0.78rem;
+  color: var(--gray-500);
+  margin-top: 2px;
+}
+.customer-next h2,
+.customer-brought-back h2 { margin-bottom: 10px; }
+.customer-next-when { margin: 0 0 10px; }
+.customer-next-message blockquote {
+  margin: 0 0 10px;
+  padding: 12px 14px;
+  border-left: 3px solid #25a366;
+  background: #eef7f1;
+  border-radius: 0 10px 10px 0;
+  display: grid;
+  gap: 4px;
+  max-width: 62ch;
+}
+.customer-brought-back p { margin: 0; }
+.seg-brought-back { color: #0b5c3a; background: #dff1e7; }
+
+@media (max-width: 900px) {
+  .customer-summary-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+
+/* ── Templates: approval + timing ────────────────────────────────────────── */
+.tpl-chip {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.tpl-chip--ok   { color: #0b5c3a; background: #dff1e7; }
+.tpl-chip--wait { color: #6b5a1e; background: #f6efda; }
+.tpl-chip--bad  { color: #99332a; background: #fbe6e3; }
+.merchant-lifecycle-hint { margin: -4px 0 14px; max-width: 72ch; font-size: 0.88rem; }
+.merchant-lifecycle-card--unused { opacity: 0.55; }
+.merchant-lifecycle-card-head { gap: 8px; flex-wrap: wrap; }
+
+
+/* ── Analytics ───────────────────────────────────────────────────────────── */
+.merchant-kpi small {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.76rem;
+  color: var(--gray-500);
+}
+.merchant-kpi--custva strong { color: #1f8a5b; }
+.merchant-chart-note { margin: -4px 0 12px; font-size: 0.85rem; max-width: 80ch; }
+.merchant-campaign-line { margin: 4px 0 6px; }
+
+.tpl-var {
+  display: inline-block;
+  padding: 0 6px;
+  margin: 0 1px;
+  border-radius: 6px;
+  background: #eef1f8;
+  color: #2c3757;
+  font-size: 0.88em;
+  font-weight: 600;
 }

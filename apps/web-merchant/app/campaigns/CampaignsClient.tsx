@@ -12,6 +12,9 @@ interface Campaign {
   sentCount?: number;
   deliveredCount?: number;
   failedCount?: number;
+  holdoutCount?: number;
+  scheduledAt?: string | null;
+  createdAt?: string;
   /* Per-recipient outcomes (migration 0024). Null for campaigns that ran
      before the dispatch ledger existed. */
   dispatch?: Record<string, number> | null;
@@ -28,6 +31,33 @@ const DISPATCH_LABEL: Record<string, string> = {
      hidden among the failures. */
   sending: "interrupted"
 };
+
+/* Plain words for a shop owner, not the column value. */
+function statusLine(c: Campaign): string {
+  const when = (iso?: string | null) =>
+    iso
+      ? new Date(iso).toLocaleString("en-IN", {
+          day: "numeric",
+          month: "short",
+          hour: "numeric",
+          minute: "2-digit"
+        })
+      : "";
+  switch (c.status) {
+    case "draft":
+      return "Not sent yet";
+    case "scheduled":
+      return `Will send ${when(c.scheduledAt)}`;
+    case "sending":
+      return "Sending now";
+    case "sent":
+      /* No send timestamp is stored (updated_at moves with every receipt), so
+         this does not pretend to know one. */
+      return "Sent";
+    default:
+      return c.status;
+  }
+}
 
 /** "3 sent · 1 skipped · 1 failed" — what actually happened to each person. */
 function DispatchBreakdown({ dispatch }: { dispatch?: Record<string, number> | null }) {
@@ -237,7 +267,7 @@ export function CampaignsClient({
   };
 
   const sendCampaign = async (campaignId: string) => {
-    if (!confirm("Send campaign now to matched audience?")) return;
+    if (!confirm("Send this message now to everyone it matches?")) return;
     setLoading(true);
     try {
       const res = await fetch(`/api/campaigns/${campaignId}/send`, { method: "POST" });
@@ -246,7 +276,7 @@ export function CampaignsClient({
         alert(data.message ?? "Failed to send.");
         return;
       }
-      alert(`Queued ${data.data?.queuedRecipients ?? 0} messages.`);
+      alert(`Sending to ${data.data?.queuedRecipients ?? 0} people now.`);
       router.refresh();
     } finally {
       setLoading(false);
@@ -312,19 +342,24 @@ export function CampaignsClient({
         <div>
           <p className="merchant-eyebrow">WhatsApp</p>
           <h1>Campaigns</h1>
+          <p className="merchant-muted">
+            Send one message to a group — for example everyone who has not come in for a while.
+          </p>
         </div>
       </header>
 
       <section className="merchant-panel">
-        <h2>Create Campaign</h2>
+        <h2>New campaign</h2>
         {templates.length === 0 ? (
-          <p className="merchant-muted">Add templates first.</p>
+          <p className="merchant-muted">
+            Write a message first on the Messages page, then come back here to choose who gets it.
+          </p>
         ) : (
           <div className="merchant-form-grid">
-            <label>Campaign name<input value={form.campaignName} onChange={(e) => setForm({ ...form, campaignName: e.target.value })} /></label>
-            <label>Template
+            <label>Campaign name (only you see this)<input value={form.campaignName} onChange={(e) => setForm({ ...form, campaignName: e.target.value })} /></label>
+            <label>Message
               <select value={form.templateId} onChange={(e) => setForm({ ...form, templateId: e.target.value })}>
-                <option value="">Select template</option>
+                <option value="">Choose a message</option>
                 {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             </label>
@@ -354,28 +389,28 @@ export function CampaignsClient({
                   checked={form.overdueOnly}
                   onChange={(e) => setForm({ ...form, overdueOnly: e.target.checked })}
                 />
-                <span>Only those past their own usual gap right now</span>
+                <span>Only people who are late right now, by their own habit</span>
               </label>
               <AudienceSummary preview={audience} loading={audienceLoading} />
             </div>
 
-            <label>Inactive days (filter)<input type="number" value={form.inactiveDaysGte} onChange={(e) => setForm({ ...form, inactiveDaysGte: e.target.value })} /></label>
-            <label>Min spend<input type="number" value={form.minSpend} onChange={(e) => setForm({ ...form, minSpend: e.target.value })} /></label>
-            <label>Pincode<input maxLength={6} value={form.pincode} onChange={(e) => setForm({ ...form, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) })} /></label>
-            <label>Auto tag
+            <label>Not visited for at least (days)<input type="number" value={form.inactiveDaysGte} onChange={(e) => setForm({ ...form, inactiveDaysGte: e.target.value })} /></label>
+            <label>Spent at least (₹)<input type="number" value={form.minSpend} onChange={(e) => setForm({ ...form, minSpend: e.target.value })} /></label>
+            <label>Area pincode<input maxLength={6} value={form.pincode} onChange={(e) => setForm({ ...form, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) })} /></label>
+            <label>Type of customer
               <select value={form.tag} onChange={(e) => setForm({ ...form, tag: e.target.value })}>
-                <option value="">Any</option>
-                <option value="Inactive">Inactive</option>
-                <option value="High-value">High-value</option>
-                <option value="Repeat">Repeat</option>
-                <option value="New">New</option>
+                <option value="">Anyone</option>
+                <option value="Inactive">Not seen in 30+ days</option>
+                <option value="High-value">Big spenders (₹2,000+)</option>
+                <option value="Repeat">Came more than once</option>
+                <option value="New">Came once</option>
               </select>
             </label>
-            <label>Schedule (optional)<input type="datetime-local" value={form.scheduledAt} onChange={(e) => setForm({ ...form, scheduledAt: e.target.value })} /></label>
+            <label>Send later (optional)<input type="datetime-local" value={form.scheduledAt} onChange={(e) => setForm({ ...form, scheduledAt: e.target.value })} /></label>
             <div className="merchant-form-wide">
-              <p className="merchant-hint">Manual include (optional)</p>
+              <p className="merchant-hint">Also add these people (optional)</p>
               <div className="merchant-inline-row">
-                <input placeholder="Search customers" value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} />
+                <input placeholder="Name or phone" value={customerSearch} onChange={(e) => setCustomerSearch(e.target.value)} />
                 <button type="button" className="merchant-btn merchant-btn--secondary" onClick={() => void searchCustomers()}>Search</button>
               </div>
               <div className="merchant-manual-list">
@@ -389,7 +424,7 @@ export function CampaignsClient({
             </div>
             <div className="merchant-form-actions">
               <button type="button" className="merchant-btn merchant-btn--primary" disabled={loading || !form.campaignName || !form.templateId} onClick={() => void createCampaign()}>
-                Create Campaign
+                Save campaign
               </button>
             </div>
           </div>
@@ -397,8 +432,8 @@ export function CampaignsClient({
       </section>
 
       <section className="merchant-panel">
-        <h2>Your Campaigns</h2>
-        {previewCount != null && <p className="merchant-success">Preview audience: {previewCount} customers</p>}
+        <h2>Your campaigns</h2>
+        {previewCount != null && <p className="merchant-success">This campaign would reach {previewCount} people.</p>}
         {campaigns.length === 0 ? (
           <p className="merchant-muted">No campaigns yet.</p>
         ) : (
@@ -406,10 +441,23 @@ export function CampaignsClient({
             {campaigns.map((c) => (
               <article key={c.id} className="merchant-campaign-card">
                 <h3>{c.campaignName}</h3>
-                <p>Status: {c.status} · Target: {c.targetCount} · Sent: {c.sentCount ?? 0} · Delivered: {c.deliveredCount ?? 0}</p>
+                <p className="merchant-campaign-line">
+                  <strong>{statusLine(c)}</strong>
+                  {c.status !== "draft" && c.status !== "scheduled" ? (
+                    <>
+                      {" · "}
+                      {c.deliveredCount ?? 0} reached their phone
+                      {c.holdoutCount ? ` · ${c.holdoutCount} deliberately not messaged, to measure the effect` : ""}
+                    </>
+                  ) : (
+                    <> · {c.targetCount} people</>
+                  )}
+                </p>
                 <DispatchBreakdown dispatch={c.dispatch} />
                 <div className="merchant-form-actions">
-                  <button type="button" className="merchant-btn merchant-btn--secondary" onClick={() => void previewAudience(c.id)}>Preview</button>
+                  {(c.status === "draft" || c.status === "scheduled") && (
+                    <button type="button" className="merchant-btn merchant-btn--secondary" onClick={() => void previewAudience(c.id)}>Who will get it</button>
+                  )}
                   <button
                     type="button"
                     className="merchant-btn merchant-btn--secondary"
@@ -417,7 +465,12 @@ export function CampaignsClient({
                   >
                     {openResults === c.id ? "Hide results" : "Did it work?"}
                   </button>
-                  <button type="button" className="merchant-btn merchant-btn--primary" disabled={loading} onClick={() => void sendCampaign(c.id)}>Send Now</button>
+                  {/* Only a campaign that has not gone out can be sent. The API
+                      already refused a second send with a 409; the button just
+                      offered it anyway. */}
+                  {(c.status === "draft" || c.status === "scheduled") && (
+                    <button type="button" className="merchant-btn merchant-btn--primary" disabled={loading} onClick={() => void sendCampaign(c.id)}>Send now</button>
+                  )}
                 </div>
                 {openResults === c.id && <CampaignResults campaignId={c.id} />}
               </article>

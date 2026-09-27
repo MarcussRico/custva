@@ -31,8 +31,15 @@ export default async function CampaignsPage() {
   }
 
   try {
-    const data = await merchantApi<{ items: Array<{ id: string; name: string }> }>("/templates?limit=100");
-    templates = data.items.map((t) => ({ id: t.id, name: t.name }));
+    const data = await merchantApi<{
+      items: Array<{ id: string; name: string; lifecycleDay: string | null }>;
+    }>("/templates?limit=100");
+    /* Only campaign messages. The automatic after-visit messages are sent by
+       the schedule, and listing all sixteen of them here buried the two a shop
+       actually wrote for campaigns. */
+    templates = data.items
+      .filter((t) => !t.lifecycleDay)
+      .map((t) => ({ id: t.id, name: t.name }));
   } catch {
     templates = [];
   }

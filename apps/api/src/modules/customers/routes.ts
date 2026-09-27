@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import type { Segment } from "@custva/shared";
+import { explainSegment, SEGMENT_THRESHOLDS, type Segment } from "@custva/shared";
 import { getConsentHistory, recordConsent } from "../../lib/consent-service.js";
 import { query, withTransaction } from "../../lib/db.js";
 import { recomputeSegmentForCustomer } from "../../lib/segmentation-service.js";
@@ -197,7 +197,7 @@ customersRouter.post("/", async (req, res) => {
     );
     const visitId = visitInsert.rows[0].id;
 
-    await projectVisitMetrics(client, merchantId, body.billingAmount, isNew);
+    await projectVisitMetrics(client, merchantId, body.billingAmount, isNew, new Date(visitDate));
 
     const counts = await client.query<{ total_visits: number }>(
       `SELECT total_visits FROM customers WHERE id = $1`,
@@ -207,7 +207,7 @@ customersRouter.post("/", async (req, res) => {
     /* FR-A1 — classify this visit organic or influenced. Deliberately before
        the segment recompute below, using the segment captured at the top of
        the transaction. */
-    await attributeVisit(client, {
+    const attribution = await attributeVisit(client, {
       merchantId,
       customerId,
       visitId,
@@ -242,7 +242,18 @@ customersRouter.post("/", async (req, res) => {
       `SELECT ${CUSTOMER_SELECT}, ${autoTagsSql("customers")} AS "autoTags" FROM customers WHERE id = $1`,
       [customerId]
     );
-    return row.rows[0];
+    /* What just happened to this visit, so the counter can say it in a
+       sentence: a first visit, a regular on schedule, or a return that
+       followed a Custva message. */
+    return {
+      ...row.rows[0],
+      visit: {
+        id: visitId,
+        isFirstVisit: isNew,
+        returnType: attribution.returnType,
+        segmentAtVisit
+      }
+    };
   });
 
   await removeLifecycleQueueJobs(cancelledJobIds);
@@ -278,7 +289,8 @@ customersRouter.get("/:id/visits", async (req, res) => {
 
   const visits = await query(
     `SELECT id, billing_amount AS "billingAmount", visit_at AS "visitAt",
-            age_at_visit AS "ageAtVisit", notes, created_at AS "createdAt"
+            age_at_visit AS "ageAtVisit", notes, created_at AS "createdAt",
+            return_type AS "returnType", is_repeat_visit AS "isRepeatVisit"
      FROM customer_visits
      WHERE customer_id = $1 AND merchant_id = $2
      ORDER BY visit_at DESC
@@ -311,7 +323,8 @@ customersRouter.get("/:id", async (req, res) => {
 
   const visits = await query(
     `SELECT id, billing_amount AS "billingAmount", visit_at AS "visitAt",
-            age_at_visit AS "ageAtVisit", notes
+            age_at_visit AS "ageAtVisit", notes,
+            return_type AS "returnType", is_repeat_visit AS "isRepeatVisit"
      FROM customer_visits
      WHERE customer_id = $1 AND merchant_id = $2
      ORDER BY visit_at DESC
@@ -324,7 +337,77 @@ customersRouter.get("/:id", async (req, res) => {
      not in a support ticket. */
   const consents = await getConsentHistory(req.auth!.merchantId, req.params.id);
 
-  return sendSuccess(req, res, { ...item.rows[0], visits: visits.rows, consents });
+  const customer = item.rows[0] as {
+    segment: Segment | null;
+    totalVisits: number;
+    lastVisit: Date | null;
+    expectedGapDays: string | null;
+  };
+
+  /* The sentence a counter can read aloud: why this person has the status
+     they have. Built from the same shared function the classifier documents
+     itself with, so the screen and the rule cannot disagree. */
+  const explanation =
+    customer.segment && customer.lastVisit && customer.expectedGapDays != null
+      ? explainSegment({
+          segment: customer.segment,
+          totalVisits: Number(customer.totalVisits),
+          daysSinceLastVisit: (Date.now() - new Date(customer.lastVisit).getTime()) / 86_400_000,
+          expectedGapDays: Number(customer.expectedGapDays)
+        })
+      : null;
+
+  /* Whether "usually every N days" is this person's own habit or the shop's.
+     Below minVisitsForOwnGap it is borrowed, and saying "usually" about
+     someone who has been in once would be making it up. */
+  const rhythmIsOwn = Number(customer.totalVisits) >= SEGMENT_THRESHOLDS.minVisitsForOwnGap;
+
+  /* What Custva is going to do next, and what it has already done. Pending
+     schedules are exactly what the worker will send; cancelled ones are left
+     out because a visit already made them unnecessary. */
+  const upcoming = await query(
+    `SELECT ls.scheduled_at AS "scheduledAt", ls.lifecycle_day AS "lifecycleDay",
+            t.header_text AS "headerText", t.body
+       FROM lifecycle_schedules ls
+       JOIN templates t ON t.id = ls.template_id
+      WHERE ls.customer_id = $1 AND ls.merchant_id = $2 AND ls.status = 'pending'
+      ORDER BY ls.scheduled_at ASC
+      LIMIT 5`,
+    [req.params.id, req.auth!.merchantId]
+  );
+
+  const messages = await query(
+    `SELECT m.id, m.created_at AS "sentAt", m.status,
+            m.delivered_at AS "deliveredAt", m.opened_at AS "readAt",
+            COALESCE(camp.campaign_name, lt.header_text, lt.name) AS "label",
+            CASE WHEN m.campaign_id IS NOT NULL THEN 'campaign' ELSE 'automatic' END AS "kind"
+       FROM messages m
+       LEFT JOIN campaigns camp ON camp.id = m.campaign_id
+       LEFT JOIN lifecycle_schedules ls ON ls.id = m.lifecycle_schedule_id
+       LEFT JOIN templates lt ON lt.id = ls.template_id
+      WHERE m.customer_id = $1 AND m.merchant_id = $2
+      ORDER BY m.created_at DESC
+      LIMIT 10`,
+    [req.params.id, req.auth!.merchantId]
+  );
+
+  /* For filling {{shop_name}} in the message preview, so the page shows what
+     the customer will actually read. */
+  const shop = await query<{ business_name: string }>(
+    `SELECT business_name FROM merchants WHERE id = $1`,
+    [req.auth!.merchantId]
+  );
+
+  return sendSuccess(req, res, {
+    ...item.rows[0],
+    shopName: shop.rows[0]?.business_name ?? null,
+    explanation,
+    rhythmIsOwn,
+    upcoming: upcoming.rows,
+    messages: messages.rows,
+    visits: visits.rows,
+    consents
+  });
 });
 
 /**

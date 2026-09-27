@@ -157,6 +157,7 @@ campaignsRouter.get("/", async (req, res) => {
             target_count AS "targetCount", sent_count AS "sentCount",
             delivered_count AS "deliveredCount", failed_count AS "failedCount",
             audience_rules AS "audienceRules", created_at AS "createdAt",
+            holdout_count AS "holdoutCount",
             /* Per-recipient dispatch outcomes (migration 0024). "Sent 38 of 40"
                is a number with no explanation attached until you can see that
                two were skipped because they asked to stop. */

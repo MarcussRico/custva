@@ -10,6 +10,9 @@ export default async function AnalyticsPage() {
     retentionRate: 0,
     customerGrowth: 0,
     totalRevenue: 0,
+    last30Days: undefined as
+      | { organicRepeatRevenue: number; custvaInfluencedRevenue: number; influencedVisits: number }
+      | undefined,
     series: [] as Array<{ date: string; visits: number; revenue: number; newCustomers: number }>
   };
   let customers = {

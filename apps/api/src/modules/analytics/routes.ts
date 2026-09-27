@@ -79,15 +79,25 @@ analyticsRouter.get("/dashboard", async (req, res) => {
     /* `withRhythm` separates "nobody is overdue" from "we do not know yet".
        Without it a brand new shop and a perfectly retained one show the
        identical message, and one of them would be a lie. */
+    /* "Overdue" means a customer with a habit who has missed it: At-Risk or
+       Dormant. It used to be anyone past expected_revisit_at, which counts
+       every one-time visitor the shop has ever had — in a simulated busy
+       cafe, 223 "overdue" of whom most had been in once, months ago.
+       First-timers are looked after by the first-visit messages instead.
+
+       `contactable` reads the consent ledger's projection. whatsapp_opt_in is
+       TRUE for customers with no consent record, whom nothing will message
+       since allowUnknown became false, so counting it overstated who could be
+       reached. */
     `SELECT COUNT(*) FILTER (WHERE overdue)::text AS count,
             COALESCE(SUM(total_spend) FILTER (WHERE overdue), 0)::text AS past_spend,
-            COUNT(*) FILTER (WHERE overdue AND whatsapp_opt_in = TRUE)::text AS contactable,
-            COUNT(*)::text AS with_rhythm
+            COUNT(*) FILTER (WHERE overdue AND consent_state = 'granted')::text AS contactable,
+            COUNT(*) FILTER (WHERE segment <> 'first_time')::text AS with_rhythm
        FROM (
-         SELECT total_spend, whatsapp_opt_in,
-                expected_revisit_at <= NOW() AS overdue
+         SELECT total_spend, consent_state, segment,
+                segment IN ('at_risk', 'dormant') AS overdue
            FROM customers
-          WHERE merchant_id = $1 AND expected_revisit_at IS NOT NULL
+          WHERE merchant_id = $1 AND expected_revisit_at IS NOT NULL AND segment IS NOT NULL
        ) c`,
     [merchantId]
   );
@@ -131,8 +141,9 @@ analyticsRouter.get("/dashboard", async (req, res) => {
 
   const totalCustomers = Number(customers.rows[0].count);
   const repeatCustomers = Number(repeat.rows[0].count);
+  /* Whole percent. "74.09%" implied a precision the question does not have. */
   const retentionRate =
-    totalCustomers === 0 ? 0 : Number(((repeatCustomers / totalCustomers) * 100).toFixed(2));
+    totalCustomers === 0 ? 0 : Math.round((repeatCustomers / totalCustomers) * 100);
 
   const prevMonth = await query<{ count: string }>(
     `SELECT COUNT(*)::text AS count FROM customers

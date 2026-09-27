@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { dueLine, formatMobile, rhythmLine, statusFor } from "../lib/customer-status";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -26,24 +27,7 @@ export interface CustomerRow {
   consentUpdatedAt: string | null;
 }
 
-const SEGMENT_LABEL: Record<string, string> = {
-  first_time: "First visit",
-  loyal: "On schedule",
-  at_risk: "Overdue",
-  dormant: "Long gone"
-};
-
-/** Plain language, because "1.7x expected gap" means nothing at a counter. */
-function dueLabel(row: CustomerRow): string {
-  if (!row.expectedRevisitAt) return "—";
-  const due = new Date(row.expectedRevisitAt).getTime();
-  const days = Math.round((Date.now() - due) / 86_400_000);
-  if (days > 0) return `${days} day${days === 1 ? "" : "s"} overdue`;
-  if (days === 0) return "Due today";
-  return `Due in ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"}`;
-}
-
-const SEGMENTS = ["first_time", "loyal", "at_risk", "dormant"];
+const SEGMENTS = ["first_time", "loyal", "at_risk", "dormant", "at_risk,dormant"];
 
 const EMPTY_FILTERS = {
   q: "",
@@ -117,7 +101,12 @@ export function CustomersPageClient() {
         limit: "20",
         /* Filtering to overdue and then sorting by last edit buries the person
            who has been missing longest. */
-        sortBy: debouncedFilters.overdueOnly ? "overdue" : "updatedAt"
+        sortBy:
+          debouncedFilters.segment === "at_risk,dormant"
+            ? "attention"
+            : debouncedFilters.overdueOnly
+              ? "overdue"
+              : "updatedAt"
       });
       if (debouncedFilters.q.trim()) params.set("q", debouncedFilters.q.trim());
       if (debouncedFilters.minSpend.trim()) params.set("minSpend", debouncedFilters.minSpend.trim());
@@ -217,6 +206,7 @@ export function CustomersPageClient() {
             <option value="loyal">On schedule</option>
             <option value="at_risk">Overdue</option>
             <option value="dormant">Long gone</option>
+            <option value="at_risk,dormant">Overdue or long gone</option>
           </select>
         </div>
         <div className="merchant-filter-field">
@@ -281,22 +271,27 @@ export function CustomersPageClient() {
               ) : (
                 customers.map((c) => (
                   <tr key={c.id}>
-                    <td>{c.name}</td>
-                    <td>{c.mobile}</td>
                     <td>
-                      {c.segment ? (
-                        <span className={`seg-pill seg-${c.segment}`}>
-                          {SEGMENT_LABEL[c.segment]}
-                        </span>
-                      ) : (
-                        <span className="merchant-muted">—</span>
-                      )}
+                      <Link href={`/customers/${c.id}`} className="merchant-link">
+                        {c.name}
+                      </Link>
+                    </td>
+                    <td>{formatMobile(c.mobile)}</td>
+                    <td>
+                      {(() => {
+                        const status = statusFor(c.segment, c.expectedRevisitAt);
+                        return status ? (
+                          <span className={`seg-pill seg-${status.key}`}>{status.label}</span>
+                        ) : (
+                          <span className="merchant-muted">—</span>
+                        );
+                      })()}
                     </td>
                     <td className={c.segment === "at_risk" || c.segment === "dormant" ? "seg-due" : ""}>
-                      {dueLabel(c)}
-                      {c.expectedGapDays ? (
+                      {dueLine(c.expectedRevisitAt)}
+                      {rhythmLine(c.expectedGapDays, c.totalVisits) ? (
                         <small className="seg-gap">
-                          usually every {Math.round(Number(c.expectedGapDays))}d
+                          {rhythmLine(c.expectedGapDays, c.totalVisits)}
                         </small>
                       ) : null}
                     </td>

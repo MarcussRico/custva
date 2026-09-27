@@ -101,6 +101,7 @@ export async function attributeVisit(
     merchantId: input.merchantId,
     customerId: input.customerId,
     visitId: input.visitId,
+    visitAt: input.visitAt,
     billingAmount: input.billingAmount,
     isFirstVisit: input.isFirstVisit,
     decision,
@@ -122,6 +123,7 @@ async function recordRevenueSplitAndCommission(
     merchantId: string;
     customerId: string;
     visitId: string;
+    visitAt: Date;
     billingAmount: number;
     isFirstVisit: boolean;
     decision: AttributionDecision;
@@ -134,7 +136,7 @@ async function recordRevenueSplitAndCommission(
     `INSERT INTO daily_merchant_metrics (
        merchant_id, metric_date, organic_repeat_revenue, influenced_revenue, influenced_visits
      )
-     VALUES ($1, CURRENT_DATE, $2, $3, $4)
+     VALUES ($1, $5::timestamptz::date, $2, $3, $4)
      ON CONFLICT (merchant_id, metric_date) DO UPDATE SET
        organic_repeat_revenue =
          daily_merchant_metrics.organic_repeat_revenue + EXCLUDED.organic_repeat_revenue,
@@ -148,6 +150,7 @@ async function recordRevenueSplitAndCommission(
       organicRepeat ? input.billingAmount : 0,
       influenced ? input.billingAmount : 0,
       influenced ? 1 : 0,
+      input.visitAt,
     ],
   );
 
